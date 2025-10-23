@@ -5,6 +5,7 @@
 #include <time.h>
 #include <math.h>
 #include <locale.h>
+#include <Windows.h>
 
 #define SIZE 8
 
@@ -711,6 +712,67 @@ int evaluateMoveScore(int fromX, int fromY, int toX, int toY, bool isCapture, Pi
 
 /* ---------- Конец вспомогательных функций ---------- */
 
+bool hasAnyMove(Piece color)
+{
+    for (int y = 0; y < SIZE; y++)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            int piece = board[y][x];
+            if (piece == EMPTY)
+                continue;
+
+            // Проверяем, принадлежит ли фигура нужному цвету
+            bool isMyPiece = ((color == WHITE) && (piece == WHITE || piece == WHITE_KING)) ||
+                             ((color == BLACK) && (piece == BLACK || piece == BLACK_KING));
+            if (!isMyPiece)
+                continue;
+
+            // Проверка возможных взятий
+            if (canCaptureFrom(x, y))
+                return true;
+
+            // Проверка обычных ходов
+            if (isKing(piece))
+            {
+                // Дамка может двигаться по диагоналям до препятствия
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    int nx = x + dx, ny = y + dy;
+                    while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+                    {
+                        if (board[ny][nx] == EMPTY)
+                            return true;
+                        else
+                            break;
+                        nx += dx;
+                        ny += dy;
+                    }
+                }
+            }
+            else
+            {
+                // Обычная шашка
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    int nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY)
+                    {
+                        // Для черных — движение вверх, для белых — вниз
+                        if ((piece == BLACK && dy == -1) || (piece == WHITE && dy == 1))
+                            return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 void makeBotMove()
 {
     typedef struct
@@ -928,8 +990,41 @@ void makeBotMove()
         turn = WHITE;
         selectedX = selectedY = -1;
     }
+    // Проверка конца игры после хода бота
+    bool whiteCanMove = hasAnyMove(WHITE);
+    bool blackCanMove = hasAnyMove(BLACK);
+    if (!whiteCanMove || !blackCanMove)
+    {
+        printf("\n=== ИГРА ОКОНЧЕНА ===\n");
+        if (!whiteCanMove && !blackCanMove)
+            printf("Ничья! Ни у кого нет ходов.\n");
+        else if (!whiteCanMove)
+            printf("Чёрные победили!\n");
+        else if (!blackCanMove)
+            printf("Белые победили!\n");
+        gameStarted = false;
+    }
 
     glutPostRedisplay();
+}
+
+void checkGameEnd()
+{
+    bool whiteCanMove = hasAnyMove(WHITE);
+    bool blackCanMove = hasAnyMove(BLACK);
+
+    if (!whiteCanMove || !blackCanMove)
+    {
+        printf("\n=== ИГРА ОКОНЧЕНА ===\n");
+        if (!whiteCanMove && !blackCanMove)
+            printf("Ничья! Ни у кого нет ходов.\n");
+        else if (!whiteCanMove)
+            printf("Чёрные победили!\n");
+        else if (!blackCanMove)
+            printf("Белые победили!\n");
+
+        gameStarted = false;
+    }
 }
 
 void tryMove(int toX, int toY)
@@ -957,8 +1052,15 @@ void tryMove(int toX, int toY)
             turn = (turn == BLACK) ? WHITE : BLACK;
             glutPostRedisplay();
 
+            // Если сейчас ходит бот, не проверяем конец игры — проверит бот
             if (gameMode == 1 && turn == BLACK)
+            {
                 makeBotMove();
+            }
+            else
+            {
+                checkGameEnd();
+            }
             return;
         }
 
@@ -980,14 +1082,23 @@ void tryMove(int toX, int toY)
             if (canCaptureFrom(toX, toY))
             {
                 glutPostRedisplay();
+                // Оставляем возможность продолжить ход
+                return;
             }
             else
             {
                 selectedX = selectedY = -1;
                 turn = (turn == BLACK) ? WHITE : BLACK;
-                if (gameMode == 1 && turn == BLACK)
-                    makeBotMove();
                 glutPostRedisplay();
+
+                if (gameMode == 1 && turn == BLACK)
+                {
+                    makeBotMove();
+                }
+                else
+                {
+                    checkGameEnd();
+                }
             }
         }
     }
@@ -999,7 +1110,7 @@ void tryMove(int toX, int toY)
         {
             if (isCapture)
             {
-                // Находим и удаляем вражескую шашку
+                // Удаляем вражескую шашку на пути
                 int stepX = dx > 0 ? 1 : -1;
                 int stepY = dy > 0 ? 1 : -1;
                 int x = selectedX + stepX;
@@ -1026,14 +1137,22 @@ void tryMove(int toX, int toY)
                 selectedX = toX;
                 selectedY = toY;
                 glutPostRedisplay();
+                return;
             }
             else
             {
                 selectedX = selectedY = -1;
                 turn = (turn == BLACK) ? WHITE : BLACK;
-                if (gameMode == 1 && turn == BLACK)
-                    makeBotMove();
                 glutPostRedisplay();
+
+                if (gameMode == 1 && turn == BLACK)
+                {
+                    makeBotMove();
+                }
+                else
+                {
+                    checkGameEnd();
+                }
             }
         }
     }
@@ -1109,6 +1228,8 @@ void reshape(int w, int h)
 
 int main(int argc, char **argv)
 {
+    SetConsoleOutputCP(1251);
+    SetConsoleCP(1251);
     srand(time(NULL));
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
