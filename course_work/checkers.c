@@ -1,14 +1,15 @@
-#include <GL/glut.h> //для создания приложения
+#include <GL/glut.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
 #include <math.h>
+#include <locale.h>
 
-#define SIZE 8 //длина
+#define SIZE 8
 
-//перечисление
-typedef enum {
+typedef enum
+{
     EMPTY = 0,
     WHITE,
     BLACK,
@@ -16,83 +17,94 @@ typedef enum {
     BLACK_KING
 } Piece;
 
-Piece board[SIZE][SIZE]; // инициализация доски
-int selectedX = -1, selectedY = -1; // для выбора фигуры (-1 это не выбрана фигура)
-bool gameStarted = false; //флаг для старта игры
-int gameMode = 0; // 1 - человек против бота, 2 - человек против человека
-Piece turn = BLACK; //инициализация текущего хода (BLACK это произвольно, т.е. не имеет значаения)
+Piece board[SIZE][SIZE];
+int selectedX = -1, selectedY = -1;
+bool gameStarted = false;
+int gameMode = 0; // 1 - С‡РµР»РѕРІРµРє РїСЂРѕС‚РёРІ Р±РѕС‚Р°, 2 - С‡РµР»РѕРІРµРє РїСЂРѕС‚РёРІ С‡РµР»РѕРІРµРєР°
+Piece turn = BLACK;
 
-//функция инициализации доски
-void initBoard() {
-    for (int y = 0; y < SIZE; y++) {
-        for (int x = 0; x < SIZE; x++) {
-            if ((x + y) % 2 == 1 && y < 3) board[y][x] = WHITE; // расставляем белые шашки
-            else if ((x + y) % 2 == 1 && y > 4) board[y][x] = BLACK; // аналогично
-            else board[y][x] = EMPTY; //пустая клетка
+void initBoard()
+{
+    for (int y = 0; y < SIZE; y++)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            if ((x + y) % 2 == 1 && y < 3)
+                board[y][x] = WHITE;
+            else if ((x + y) % 2 == 1 && y > 4)
+                board[y][x] = BLACK;
+            else
+                board[y][x] = EMPTY;
         }
     }
-    selectedX = selectedY = -1; //сброс выбора шашки после завершения хода
-    turn = WHITE; //первый ход начинают белые шашки
+    selectedX = selectedY = -1;
+    turn = WHITE;
 }
 
-//проверка является ли фигура вражеской
-//piece - проверяемая шашка, которую хочет сьесть игрок, current - выбранная шашка игрока
-bool isEnemy(int piece, int current) {
-    if (piece == EMPTY) return false;
-    if ((current == BLACK || current == BLACK_KING) && (piece == WHITE || piece == WHITE_KING)) return true;
-    if ((current == WHITE || current == WHITE_KING) && (piece == BLACK || piece == BLACK_KING)) return true;
-    return false; // если фигура своя или пустая клетка или нет вражеской фигуры
+bool isEnemy(int piece, int current)
+{
+    if (piece == EMPTY)
+        return false;
+    if ((current == BLACK || current == BLACK_KING) && (piece == WHITE || piece == WHITE_KING))
+        return true;
+    if ((current == WHITE || current == WHITE_KING) && (piece == BLACK || piece == BLACK_KING))
+        return true;
+    return false;
 }
 
-//проверка фигуры является ли она дамкой
-bool isKing(int piece) {
+bool isKing(int piece)
+{
     return piece == WHITE_KING || piece == BLACK_KING;
 }
 
-//превращение в дамку при достижении края
-void promoteIfNeeded(int x, int y) {
-    if (board[y][x] == WHITE && y == SIZE - 1) board[y][x] = WHITE_KING;
-    if (board[y][x] == BLACK && y == 0) board[y][x] = BLACK_KING;
+void promoteIfNeeded(int x, int y)
+{
+    if (board[y][x] == WHITE && y == SIZE - 1)
+        board[y][x] = WHITE_KING;
+    if (board[y][x] == BLACK && y == 0)
+        board[y][x] = BLACK_KING;
 }
 
-// рисуем шашки (круги)
-// cx, cy - центр круга по координатам X и Y, r - радиус круга
-void drawCircle(float cx, float cy, float r) {
-    glBegin(GL_TRIANGLE_FAN); // использование одной вершины в центре для треугольников, в общем режим веера треугольников
-    glVertex2f(cx, cy); // задаем центральную точку круга
-    for (int i = 0; i <= 100; i++) { //101 точка чтобы замыкать окружность без разрывов
-        float angle = 2.0f * 3.1415926f * i / 100; // текущий угол в радианах, текущ шаг делится на общ кол-во и умнож на 2 Пи
-        glVertex2f(cx + cosf(angle) * r, cy + sinf(angle) * r); //ставим координаты для треугольника
+void drawCircle(float cx, float cy, float r)
+{
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx, cy);
+    for (int i = 0; i <= 100; i++)
+    {
+        float angle = 2.0f * 3.1415926f * i / 100;
+        glVertex2f(cx + cosf(angle) * r, cy + sinf(angle) * r);
     }
-    glEnd(); //завершение определения примитива
+    glEnd();
 }
 
-//рисовка игровой доски
-void drawBoard() {
-    float squareSize = 1.0f / (SIZE + 2); // размер клетки с учетом отступов (10% окна)
-    float offset = squareSize; // отступ от края
+void drawBoard()
+{
+    float squareSize = 1.0f / (SIZE + 2); // Add space for border
+    float offset = squareSize;            // Offset for border
 
-    // рисование рамки
-    glColor3f(0.3f, 0.2f, 0.1f); //коричневый цвет 
-    glBegin(GL_QUADS); // режим рисования треугольника
+    // Draw border
+    glColor3f(0.3f, 0.2f, 0.1f);
+    glBegin(GL_QUADS);
     glVertex2f(0, 0);
     glVertex2f(1, 0);
     glVertex2f(1, 1);
     glVertex2f(0, 1);
-    glEnd(); // завершаем рисование
+    glEnd();
 
-    // отрисовка координат (A-H)
-    glColor3f(1, 1, 1); // белый цвет
-    for (int x = 0; x < SIZE; x++) {
-        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset - squareSize * 0.7f); //устанавливаем позицию растрового текста
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);// рисует символ
+    // Draw coordinate letters (A-H)
+    glColor3f(1, 1, 1);
+    for (int x = 0; x < SIZE; x++)
+    {
+        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset - squareSize * 0.7f);
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);
 
         glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset + SIZE * squareSize + squareSize * 0.3f);
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);
     }
 
-    // отрисовка чиисел (1-8)
-    for (int y = 0; y < SIZE; y++) {
+    // Draw coordinate numbers (1-8)
+    for (int y = 0; y < SIZE; y++)
+    {
         glRasterPos2f(offset - squareSize * 0.7f, offset + y * squareSize + squareSize * 0.4f);
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, '1' + (SIZE - 1 - y));
 
@@ -100,11 +112,15 @@ void drawBoard() {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, '1' + (SIZE - 1 - y));
     }
 
-    // отрисовка самой игровой доски (ее клеток)
-    for (int y = 0; y < SIZE; y++) {
-        for (int x = 0; x < SIZE; x++) {
-            if ((x + y) % 2 == 0) glColor3f(255 / 255.0f, 254 / 255.0f, 122 / 255.0f); //бежевый цвет
-            else glColor3f(0.4f, 0.2f, 0.1f); //темно-коричневый
+    // Draw checkerboard
+    for (int y = 0; y < SIZE; y++)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            if ((x + y) % 2 == 0)
+                glColor3f(255 / 255.0f, 254 / 255.0f, 122 / 255.0f);
+            else
+                glColor3f(0.4f, 0.2f, 0.1f);
 
             glBegin(GL_QUADS);
             glVertex2f(offset + x * squareSize, offset + y * squareSize);
@@ -114,266 +130,680 @@ void drawBoard() {
             glEnd();
 
             int piece = board[y][x];
-            if (piece != EMPTY) {
-                if (piece == WHITE || piece == WHITE_KING) glColor3f(1, 1, 1);
-                else glColor3f(0, 0, 0);
+            if (piece != EMPTY)
+            {
+                if (piece == WHITE || piece == WHITE_KING)
+                    glColor3f(1, 1, 1);
+                else
+                    glColor3f(0, 0, 0);
                 drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.4f);
 
-                if (isKing(piece)) {
+                if (isKing(piece))
+                {
                     glColor3f(1, 0, 0);
                     drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.2f);
                 }
             }
 
-            if (x == selectedX && y == selectedY) {
-                glColor3f(0, 1, 0); //зеленый
+            if (x == selectedX && y == selectedY)
+            {
+                glColor3f(0, 1, 0);
                 drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.45f);
             }
         }
     }
 }
 
-//рисовка стартового экрана
-void drawStartScreen() {
-    // Рисуем кнопки
+void drawStartScreen()
+{
+    // Р РёСЃСѓРµРј РєРЅРѕРїРєРё
     glColor3f(0, 0, 0);
     glBegin(GL_QUADS);
-    glVertex2f(0.2f, 0.5f); glVertex2f(0.8f, 0.5f);
-    glVertex2f(0.8f, 0.6f); glVertex2f(0.2f, 0.6f);
+    glVertex2f(0.2f, 0.5f);
+    glVertex2f(0.8f, 0.5f);
+    glVertex2f(0.8f, 0.6f);
+    glVertex2f(0.2f, 0.6f);
     glEnd();
 
     glBegin(GL_QUADS);
-    glVertex2f(0.2f, 0.3f); glVertex2f(0.8f, 0.3f);
-    glVertex2f(0.8f, 0.4f); glVertex2f(0.2f, 0.4f);
+    glVertex2f(0.2f, 0.3f);
+    glVertex2f(0.8f, 0.3f);
+    glVertex2f(0.8f, 0.4f);
+    glVertex2f(0.2f, 0.4f);
     glEnd();
 
-    // Белый текст на кнопках
+    // Р‘РµР»С‹Р№ С‚РµРєСЃС‚ РЅР° РєРЅРѕРїРєР°С…
     glColor3f(1, 1, 1);
     glRasterPos2f(0.3f, 0.54f);
-    const char* text1 = " PLAYER VS BOT";
-    while (*text1) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text1++);
+    const char *text1 = " PLAYER VS BOT";
+    while (*text1)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text1++);
 
     glRasterPos2f(0.3f, 0.34f);
-    const char* text2 = " PLAYER VS PLAYER";
-    while (*text2) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text2++);
+    const char *text2 = " PLAYER VS PLAYER";
+    while (*text2)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text2++);
 
-    // Большая надпись "CHECKERS"
-    glColor3f(1, 1, 1); // Цвет надписи
+    // Р‘РѕР»СЊС€Р°СЏ РЅР°РґРїРёСЃСЊ "CHECKERS"
+    glColor3f(1, 1, 1); // Р¦РІРµС‚ РЅР°РґРїРёСЃРё
     glRasterPos2f(0.32f, 0.75f);
-    const char* title = "          CHECKERS";
-    while (*title) glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *title++);
+    const char *title = "          CHECKERS";
+    while (*title)
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *title++);
 }
 
-//функция которая рисует каждый кадр когда вызывается каждый раз, вызывается GLUT
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT); // очистка экрана
-    glLoadIdentity(); // сброс всех трансформаций
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
 
-    if (!gameStarted) drawStartScreen();//стартовый экран
-    else drawBoard();//поле
+    if (!gameStarted)
+        drawStartScreen();
+    else
+        drawBoard();
 
-    glutSwapBuffers(); // отображает готовый кадр на экране
+    glutSwapBuffers();
 }
 
-//функция для проверки может ли фигура сделать взятие вражеской фигуры
-bool canCaptureFrom(int x, int y) {
-    int piece = board[y][x]; //выбранная фигура
-    if (piece == EMPTY) return false;
+bool canCaptureFrom(int x, int y)
+{
+    int piece = board[y][x];
+    if (piece == EMPTY)
+        return false;
 
-    // Для обычных шашек
-    if (!isKing(piece)) {
-        int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} };//массив направления движения дамки
-        for (int d = 0; d < 4; d++) { //перебор всех 4 направлений
-            int dx = dirs[d][0], dy = dirs[d][1]; // выбираем x и y на каждой итерации
+    // Р”Р»СЏ РѕР±С‹С‡РЅС‹С… С€Р°С€РµРє
+    if (!isKing(piece))
+    {
+        int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+        for (int d = 0; d < 4; d++)
+        {
+            int dx = dirs[d][0], dy = dirs[d][1];
 
-            // вычисляем координаты соседних и дальних клеток
             int mx = x + dx;
             int my = y + dy;
             int tx = x + 2 * dx;
             int ty = y + 2 * dy;
 
-            //проверка является ли шашка вражеской и есть ли за ней место
             if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
-                isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY) {
+                mx >= 0 && mx < SIZE && my >= 0 && my < SIZE &&
+                isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY)
+            {
                 return true;
             }
         }
     }
-    else { // Для дамок
-        int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} }; //массив направления движения дамки
-        for (int d = 0; d < 4; d++) { //перебор всех 4 направлений
-            int dx = dirs[d][0], dy = dirs[d][1]; // выбираем x и y на каждой итерации
-            int nx = x + dx, ny = y + dy; // координаты соседних клеток
-            bool foundEnemy = false;//флаг, который показывает нашли ли мы врага
+    else
+    { // Р”Р»СЏ РґР°РјРѕРє
+        int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+        for (int d = 0; d < 4; d++)
+        {
+            int dx = dirs[d][0], dy = dirs[d][1];
+            int nx = x + dx, ny = y + dy;
+            bool foundEnemy = false;
 
-            // Ищем вражескую шашку по диагонали
-            while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
-                if (board[ny][nx] != EMPTY) { //если клетка не пустая
-                    if (isEnemy(board[ny][nx], piece) && !foundEnemy) { //убеждаемся что это вражеская шашка и что мы еще не встречали в этом направлении
+            // РС‰РµРј РІСЂР°Р¶РµСЃРєСѓСЋ С€Р°С€РєСѓ РїРѕ РґРёР°РіРѕРЅР°Р»Рё
+            while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+            {
+                if (board[ny][nx] != EMPTY)
+                {
+                    if (isEnemy(board[ny][nx], piece) && !foundEnemy)
+                    {
                         foundEnemy = true;
-                        // Проверяем клетку за вражеской шашкой
+                        // РџСЂРѕРІРµСЂСЏРµРј РєР»РµС‚РєСѓ Р·Р° РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№
                         int tx = nx + dx, ty = ny + dy;
-                        if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY) {
-                            // Проверяем, что между дамкой и вражеской шашкой нет других фигур
-                            bool clearPath = true; //флаг на наличие фигуры между дамкой и вражеской шашкой
-                            int cx = x + dx, cy = y + dy; //дальние клетки
-                            while (cx != nx || cy != ny) { //до тех пор пока не равны соседним клеткам
-                                if (board[cy][cx] != EMPTY) {
+                        if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                        {
+                            // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РјРµР¶РґСѓ РґР°РјРєРѕР№ Рё РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№ РЅРµС‚ РґСЂСѓРіРёС… С„РёРіСѓСЂ
+                            bool clearPath = true;
+                            int cx = x + dx, cy = y + dy;
+                            while (cx != nx || cy != ny)
+                            {
+                                if (board[cy][cx] != EMPTY)
+                                {
                                     clearPath = false;
                                     break;
                                 }
-                                cx += dx; //идем к следующей клетке
-                                cy += dy; //аналогично
+                                cx += dx;
+                                cy += dy;
                             }
-                            if (clearPath) return true; //если нет фигур
+                            if (clearPath)
+                                return true;
                         }
                         break;
                     }
-                    else {
-                        break; // Нашли свою шашку или вторую вражескую, т.е. не можем перепрыгивать через свои фигуры
+                    else
+                    {
+                        break; // РќР°С€Р»Рё СЃРІРѕСЋ С€Р°С€РєСѓ РёР»Рё РІС‚РѕСЂСѓСЋ РІСЂР°Р¶РµСЃРєСѓСЋ
                     }
                 }
-                nx += dx; //продолжаем движение по диагонали
+                nx += dx;
                 ny += dy;
             }
         }
     }
-    return false; //если взятие невозможно
+    return false;
 }
 
-//может ли дамка сделать ход из одной клетки в другую
-bool canKingMove(int fromX, int fromY, int toX, int toY, bool* isCapture) { //в параметры координаты исходной позиции дамки потом координы целевой позиции потом указатель на переменную был ли захват фигуры
-    int dx = toX - fromX; //расстояние между позициями  
+bool canKingMove(int fromX, int fromY, int toX, int toY, bool *isCapture)
+{
+    int dx = toX - fromX;
     int dy = toY - fromY;
 
-    // Дамка должна двигаться по диагонали
-    if (abs(dx) != abs(dy)) return false; //если ход недопустим, т.к. координаты не совпадают по диагонали
+    // Р”Р°РјРєР° РґРѕР»Р¶РЅР° РґРІРёРіР°С‚СЊСЃСЏ РїРѕ РґРёР°РіРѕРЅР°Р»Рё
+    if (abs(dx) != abs(dy))
+        return false;
 
-    //определяем направление шага и расстояние
     int stepX = dx > 0 ? 1 : -1;
     int stepY = dy > 0 ? 1 : -1;
-    int distance = abs(dx); //количество шагов
-    int enemyCount = 0; //кол-во врагов в пути
-    int enemyX = -1, enemyY = -1; //координаты наденного врага
+    int distance = abs(dx);
+    int enemyCount = 0;
+    int enemyX = -1, enemyY = -1;
 
-    // Проверяем путь дамки
-    for (int i = 1; i < distance; i++) {
-        int x = fromX + i * stepX; //вычисляем текущую клетку на пути   
+    // РџСЂРѕРІРµСЂСЏРµРј РїСѓС‚СЊ РґР°РјРєРё
+    for (int i = 1; i < distance; i++)
+    {
+        int x = fromX + i * stepX;
         int y = fromY + i * stepY;
 
-        if (board[y][x] != EMPTY) {
-            if (isEnemy(board[y][x], board[fromY][fromX])) {
-                enemyCount++; //увеличиваем счетчик врагов
-                enemyX = x; //присваиваем координаты врага
+        if (board[y][x] != EMPTY)
+        {
+            if (isEnemy(board[y][x], board[fromY][fromX]))
+            {
+                enemyCount++;
+                enemyX = x;
                 enemyY = y;
             }
-            else {
-                return false; // Своя шашка на пути 
+            else
+            {
+                return false; // РЎРІРѕСЏ С€Р°С€РєР° РЅР° РїСѓС‚Рё
             }
         }
     }
 
-    if (enemyCount == 0) {
-        *isCapture = false; //указваем что нет захвата
-        return true; // ход воможен
+    if (enemyCount == 0)
+    {
+        *isCapture = false;
+        return true; // РџСЂРѕСЃС‚Рѕ С…РѕРґ Р±РµР· РІР·СЏС‚РёСЏ
     }
-    else if (enemyCount == 1) {
-        // Проверяем, что за вражеской шашкой пусто
+    else if (enemyCount == 1)
+    {
+        // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ Р·Р° РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№ РїСѓСЃС‚Рѕ
         int behindX = enemyX + stepX;
         int behindY = enemyY + stepY;
 
-        if (behindX == toX && behindY == toY) { //если после врага находится целевая клетка, то это допустимый захват
-            *isCapture = true; //указываем что есть захват
-            return true; // ход воможен
+        if (behindX == toX && behindY == toY)
+        {
+            *isCapture = true;
+            return true;
         }
 
-        // Дамка может остановиться на любой клетке за вражеской шашкой
-        while (behindX >= 0 && behindX < SIZE && behindY >= 0 && behindY < SIZE) { //цикл в пределах поля
-            if (board[behindY][behindX] != EMPTY) return false; //если на пути дамки встречается другая фигура, то ход невозможен
-            if (behindX == toX && behindY == toY) { //если текущая клетка совпадает с целевой
-                *isCapture = true; //указываем что есть захват
-                return true; // ход возможен
+        // Р”Р°РјРєР° РјРѕР¶РµС‚ РѕСЃС‚Р°РЅРѕРІРёС‚СЊСЃСЏ РЅР° Р»СЋР±РѕР№ РєР»РµС‚РєРµ Р·Р° РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№
+        while (behindX >= 0 && behindX < SIZE && behindY >= 0 && behindY < SIZE)
+        {
+            if (board[behindY][behindX] != EMPTY)
+                return false;
+            if (behindX == toX && behindY == toY)
+            {
+                *isCapture = true;
+                return true;
             }
-            behindX += stepX; //двигаемся дальше по диагонали
+            behindX += stepX;
             behindY += stepY;
         }
     }
 
-    return false; //ход невозможен
+    return false;
 }
 
-//функция для выполнения хода бота
-void makeBotMove() {
-    typedef struct {
-        int fromX, fromY, toX, toY; //координаты откуда и куда двигается фигура
-        bool isCapture; //является ли ход взятием
+/* ---------- РќРћР’Р«Р• Р’РЎРџРћРњРћР“РђРўР•Р›Р¬РќР«Р• Р¤РЈРќРљР¦РР Р”Р›РЇ РћР¦Р•РќРљР РҐРћР”РћР’ Р‘РћРўРђ ---------- */
+
+/* РЎРѕС…СЂР°РЅСЏРµС‚ С‚РµРєСѓС‰СѓСЋ РґРѕСЃРєСѓ РІ temp Рё РІРѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ РёР· temp */
+void backupBoard(Piece temp[SIZE][SIZE])
+{
+    for (int y = 0; y < SIZE; y++)
+        for (int x = 0; x < SIZE; x++)
+            temp[y][x] = board[y][x];
+}
+void restoreBoard(Piece temp[SIZE][SIZE])
+{
+    for (int y = 0; y < SIZE; y++)
+        for (int x = 0; x < SIZE; x++)
+            board[y][x] = temp[y][x];
+}
+
+/* Р“РµРЅРµСЂРёСЂСѓРµС‚ РІСЃРµ РІРѕР·РјРѕР¶РЅС‹Рµ РІР·СЏС‚РёСЏ РґР»СЏ С†РІРµС‚Р° 'color' Рё РІРѕР·РІСЂР°С‰Р°РµС‚ С‡РµСЂРµР· РјР°СЃСЃРёРІ moves
+   Р’РѕР·РІСЂР°С‰Р°РµРј: С‡РёСЃР»Рѕ РЅР°Р№РґРµРЅРЅС‹С… РІР·СЏС‚РёР№ */
+typedef struct
+{
+    int fromX, fromY, toX, toY;
+    bool isKing;
+} FastMove;
+
+/* РџРѕР»СѓС‡РёС‚СЊ РІРѕР·РјРѕР¶РЅС‹Рµ РІР·СЏС‚РёСЏ РґР»СЏ РєРѕРЅРєСЂРµС‚РЅРѕР№ РїРѕР·РёС†РёРё (РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ РїСЂРѕРІРµСЂРєРё СѓСЏР·РІРёРјРѕСЃС‚Рё) */
+int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
+{
+    int count = 0;
+    for (int y = 0; y < SIZE; y++)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            int piece = board[y][x];
+            if (piece == EMPTY)
+                continue;
+            bool pieceIsColor = ((color == BLACK) && (piece == BLACK || piece == BLACK_KING)) ||
+                                ((color == WHITE) && (piece == WHITE || piece == WHITE_KING));
+            if (!pieceIsColor)
+                continue;
+
+            if (isKing(piece))
+            {
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    int nx = x + dx, ny = y + dy;
+                    bool foundEnemy = false;
+                    while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+                    {
+                        if (board[ny][nx] != EMPTY)
+                        {
+                            if (isEnemy(board[ny][nx], piece) && !foundEnemy)
+                            {
+                                foundEnemy = true;
+                                int tx = nx + dx, ty = ny + dy;
+                                if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                                {
+                                    bool clearPath = true;
+                                    int cx = x + dx, cy = y + dy;
+                                    while (cx != nx || cy != ny)
+                                    {
+                                        if (board[cy][cx] != EMPTY)
+                                        {
+                                            clearPath = false;
+                                            break;
+                                        }
+                                        cx += dx;
+                                        cy += dy;
+                                    }
+                                    if (clearPath)
+                                    {
+                                        while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                                        {
+                                            if (count < maxMoves)
+                                                outMoves[count] = (FastMove){x, y, tx, ty, true};
+                                            count++;
+                                            tx += dx;
+                                            ty += dy;
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        nx += dx;
+                        ny += dy;
+                    }
+                }
+            }
+            else
+            {
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    // РѕР±С‹С‡РЅС‹Рµ С€Р°С€РєРё: direction restriction handled via isEnemy checks / board coords
+                    int mx = x + dx, my = y + dy;
+                    int tx = x + 2 * dx, ty = y + 2 * dy;
+                    if (mx >= 0 && mx < SIZE && my >= 0 && my < SIZE &&
+                        tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
+                        isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY)
+                    {
+                        if (count < maxMoves)
+                            outMoves[count] = (FastMove){x, y, tx, ty, false};
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    return count;
+}
+
+/* РџСЂРѕРІРµСЂСЏРµС‚ вЂ” РµСЃС‚СЊ Р»Рё Сѓ РїСЂРѕС‚РёРІРЅРёРєР° РІР·СЏС‚РёРµ, РєРѕС‚РѕСЂРѕРµ СЃРЅРёРјРµС‚ С„РёРіСѓСЂСѓ, СЃС‚РѕСЏС‰СѓСЋ РІ (targetX,targetY)
+   Р’РѕР·РІСЂР°С‰Р°РµС‚ true, РµСЃР»Рё С‚Р°РєР°СЏ СѓРіСЂРѕР·Р° РµСЃС‚СЊ. Р­С‚Р° С„СѓРЅРєС†РёСЏ СЃРёРјСѓР»РёСЂСѓРµС‚ РЅР° С‚РµРєСѓС‰РµР№ РґРѕСЃРєРµ (РїСЂРµРґРїРѕР»Р°РіР°РµС‚СЃСЏ, С‡С‚Рѕ С…РѕРґ СѓР¶Рµ СЃРґРµР»Р°РЅ). */
+bool opponentCanCaptureSquare(int targetX, int targetY, int opponentColor)
+{
+    FastMove moves[200];
+    int cnt = generateCaptureMovesForColor(opponentColor, moves, 200);
+    // Р”Р»СЏ РєР°Р¶РґРѕРіРѕ РІР·СЏС‚РёСЏ РЅСѓР¶РЅРѕ РїРѕРЅСЏС‚СЊ, РєР°РєР°СЏ РєРѕРѕСЂРґРёРЅР°С‚Р° СЃСЉРµРґРµРЅРЅРѕР№ С„РёРіСѓСЂС‹.
+    for (int i = 0; i < cnt && i < 200; i++)
+    {
+        int fx = moves[i].fromX, fy = moves[i].fromY, tx = moves[i].toX, ty = moves[i].toY;
+        if (!moves[i].isKing)
+        {
+            // РѕР±С‹С‡РЅС‹Р№ РїСЂС‹Р¶РѕРє вЂ” СЃСЉРµРґРµРЅРЅР°СЏ С„РёРіСѓСЂР° РІ СЃРµСЂРµРґРёРЅРµ
+            int mx = (fx + tx) / 2;
+            int my = (fy + ty) / 2;
+            if (mx == targetX && my == targetY)
+                return true;
+        }
+        else
+        {
+            // РґР°РјРєР° вЂ” РЅСѓР¶РЅРѕ РЅР°Р№С‚Рё РІСЂР°Р¶РµСЃРєСѓСЋ С„РёРіСѓСЂСѓ РЅР° РґРёР°РіРѕРЅР°Р»Рё РјРµР¶РґСѓ fx,fy Рё tx,ty
+            int dx = (tx > fx) ? 1 : -1;
+            int dy = (ty > fy) ? 1 : -1;
+            int cx = fx + dx, cy = fy + dy;
+            while (cx != tx || cy != ty)
+            {
+                if (cx == targetX && cy == targetY)
+                    return true; // РґР°РјРєР° РјРѕР¶РµС‚ СЃСЉРµСЃС‚СЊ СЌС‚Сѓ РєР»РµС‚РєСѓ
+                if (board[cy][cx] != EMPTY && !(cx == targetX && cy == targetY))
+                {
+                    // СЌС‚Рѕ РєР°РєР°СЏ-С‚Рѕ С„РёРіСѓСЂР° (РЅРѕ РµСЃР»Рё СЌС‚Рѕ РЅРµ target вЂ” СЌС‚Рѕ РїСЂРµРїСЏС‚СЃС‚РІРёРµ РґР»СЏ РґР°РЅРЅРѕРіРѕ РІР°СЂРёР°РЅС‚Р°)
+                    break;
+                }
+                cx += dx;
+                cy += dy;
+            }
+        }
+    }
+    return false;
+}
+
+/* Р РµРєСѓСЂСЃРёРІРЅРѕ СЃС‡РёС‚Р°РµРј РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СЃСЉРµРґР°РµРјС‹С… С„РёРіСѓСЂ (С†РµРїРѕС‡РµРє) РґР»СЏ Р±РѕС‚Р°, РЅРѕ СЃ РѕРіСЂР°РЅРёС‡РµРЅРЅРѕР№ РіР»СѓР±РёРЅРѕР№.
+   Р”Р»СЏ РїСЂРѕСЃС‚РѕС‚С‹: С„СѓРЅРєС†РёСЏ СЃРёРјСѓР»РёСЂСѓРµС‚ С‚РѕР»СЊРєРѕ С†РµРїРѕС‡РєРё, РЅР°С‡РёРЅР°СЋС‰РёРµСЃСЏ СЃ one capture move (from->to),
+   Рё РІРѕР·РІСЂР°С‰Р°РµС‚ РјР°РєСЃРёРјСѓРј РґРѕ depthLimit. */
+int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piece, int depthLimit)
+{
+    Piece temp[SIZE][SIZE];
+    backupBoard(temp);
+
+    // Р’С‹РїРѕР»РЅРёС‚СЊ РѕРґРЅРѕ РІР·СЏС‚РёРµ (РёР·РІР»РµС‡СЊ СЃСЉРµРґРµРЅРЅСѓСЋ)
+    if (isKing(piece))
+    {
+        int dx = (toX > fromX) ? 1 : -1;
+        int dy = (toY > fromY) ? 1 : -1;
+        int x = fromX + dx, y = fromY + dy;
+        while (x != toX || y != toY)
+        {
+            if (isEnemy(board[y][x], piece))
+            {
+                board[y][x] = EMPTY;
+                break;
+            }
+            x += dx;
+            y += dy;
+        }
+    }
+    else
+    {
+        int mx = (fromX + toX) / 2;
+        int my = (fromY + toY) / 2;
+        board[my][mx] = EMPTY;
+    }
+    board[toY][toX] = piece;
+    board[fromY][fromX] = EMPTY;
+    promoteIfNeeded(toX, toY);
+
+    int best = 1; // СѓР¶Рµ СЃРґРµР»Р°Р» 1 РІР·СЏС‚РёРµ
+    if (depthLimit > 1 && canCaptureFrom(toX, toY))
+    {
+        // РќР°Р№РґРµРј РІСЃРµ РІРѕР·РјРѕР¶РЅС‹Рµ РїРѕСЃР»РµРґСѓСЋС‰РёРµ РІР·СЏС‚РёСЏ СЃ РїРѕР·РёС†РёРё toX,toY
+        // РџРµСЂРµС‡РёСЃР»СЏРµРј РІРѕР·РјРѕР¶РЅС‹Рµ С†РµР»Рё вЂ” РјС‹ РјРѕР¶РµРј РїРѕРІС‚РѕСЂРЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‡Р°СЃС‚СЊ Р»РѕРіРёРєРё РіРµРЅРµСЂР°С†РёРё РІР·СЏС‚РёР№
+        // Р”Р»СЏ РїСЂРѕСЃС‚РѕС‚С‹ СЃРѕР±РµСЂС‘Рј С…РѕРґС‹ Рё СЂРµРєСѓСЂСЃРёРІРЅРѕ СЃС‡РёС‚Р°С‚СЊ РјР°РєСЃРёРјСѓРј
+        // РЎРѕР±РёСЂР°РµРј РїРѕС‚РµРЅС†РёР°Р»СЊРЅС‹Рµ capture moves from toX,toY
+        Piece curPiece = board[toY][toX];
+        if (curPiece != EMPTY)
+        {
+            // Р”Р»СЏ РґР°РјРєРё
+            if (isKing(curPiece))
+            {
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    int nx = toX + dx, ny = toY + dy;
+                    bool foundEnemy = false;
+                    while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+                    {
+                        if (board[ny][nx] != EMPTY)
+                        {
+                            if (isEnemy(board[ny][nx], curPiece) && !foundEnemy)
+                            {
+                                foundEnemy = true;
+                                int tx = nx + dx, ty = ny + dy;
+                                if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                                {
+                                    int curtx = tx, curty = ty;
+                                    while (curtx >= 0 && curtx < SIZE && curty >= 0 && curty < SIZE && board[curty][curtx] == EMPTY)
+                                    {
+                                        int chain = 1 + simulateCaptureChainCount(toX, toY, curtx, curty, curPiece, depthLimit - 1);
+                                        if (chain > best)
+                                            best = chain;
+                                        curtx += dx;
+                                        curty += dy;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                        nx += dx;
+                        ny += dy;
+                    }
+                }
+            }
+            else
+            {
+                int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                for (int d = 0; d < 4; d++)
+                {
+                    int dx = dirs[d][0], dy = dirs[d][1];
+                    int mx = toX + dx, my = toY + dy;
+                    int tx = toX + 2 * dx, ty = toY + 2 * dy;
+                    if (mx >= 0 && mx < SIZE && my >= 0 && my < SIZE &&
+                        tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
+                        isEnemy(board[my][mx], curPiece) && board[ty][tx] == EMPTY)
+                    {
+                        int chain = 1 + simulateCaptureChainCount(toX, toY, tx, ty, curPiece, depthLimit - 1);
+                        if (chain > best)
+                            best = chain;
+                    }
+                }
+            }
+        }
+    }
+
+    restoreBoard(temp);
+    return best;
+}
+
+/* РћС†РµРЅРєР° С…РѕРґР°: +Р·Р° РґР»РёРЅСѓ С†РµРїРѕС‡РєРё, +Р·Р° РїСЂРѕРґРІРёР¶РµРЅРёРµ Рє РґР°РјРєРµ, -Р·Р° СѓСЏР·РІРёРјРѕСЃС‚СЊ */
+int evaluateMoveScore(int fromX, int fromY, int toX, int toY, bool isCapture, Piece piece)
+{
+    int score = 0;
+
+    // Р‘Р°Р·РѕРІС‹Рµ РїСЂРёРѕСЂРёС‚РµС‚С‹
+    if (isCapture)
+    {
+        // РѕС†РµРЅРёРІР°РµРј РґР»РёРЅСѓ С†РµРїРѕС‡РєРё (РѕРіСЂР°РЅРёС‡РµРЅРЅР°СЏ РіР»СѓР±РёРЅР°)
+        int chain = simulateCaptureChainCount(fromX, fromY, toX, toY, piece, 4); // РіР»СѓР±РёРЅР° 4
+        score += chain * 200;                                                    // РІРµСЃ РґР»СЏ РІР·СЏС‚РёР№ РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ Р±РѕР»СЊС€РѕР№
+    }
+
+    // РџРѕРѕС‰СЂСЏРµРј РїСЂРѕРґРІРёР¶РµРЅРёРµ Рє РґР°РјРєРµ (РґР»СЏ С‡РµСЂРЅС‹С…: y СѓРјРµРЅСЊС€РµРЅРёРµ РґРѕ 0)
+    if (!isKing(piece))
+    {
+        if (piece == BLACK)
+        {
+            int distBefore = fromY;
+            int distAfter = toY;
+            if (distAfter < distBefore)
+                score += (distBefore - distAfter) * 5;
+            // Р±РѕРЅСѓСЃ РµСЃР»Рё РґРѕС€РµР» РґРѕ РїРѕСЃР»РµРґРЅРµР№ Р»РёРЅРёРё
+            if (toY == 0)
+                score += 80;
+        }
+        else if (piece == WHITE)
+        {
+            int distBefore = (SIZE - 1 - fromY);
+            int distAfter = (SIZE - 1 - toY);
+            if (distAfter < distBefore)
+                score += (distBefore - distAfter) * 5;
+            if (toY == SIZE - 1)
+                score += 80;
+        }
+    }
+    else
+    {
+        // РґР»СЏ РґР°РјРєРё РЅРµР±РѕР»СЊС€РѕР№ Р±РѕРЅСѓСЃ Р·Р° Р°РєС‚РёРІРЅРѕСЃС‚СЊ (С‡РµРј РґР°Р»СЊС€Рµ РІ С†РµРЅС‚СЂ вЂ” С‚РµРј Р»СѓС‡С€Рµ)
+        int centerDist = abs(toX - SIZE / 2) + abs(toY - SIZE / 2);
+        score += (20 - centerDist);
+    }
+
+    // РЁС‚СЂР°С„ Р·Р° СѓСЏР·РІРёРјРѕСЃС‚СЊ: РµСЃР»Рё РїРѕСЃР»Рµ РІС‹РїРѕР»РЅРµРЅРёСЏ С…РѕРґР° РїСЂРѕС‚РёРІРЅРёРє РјРѕР¶РµС‚ СЃСЉРµСЃС‚СЊ РЅР°С€Сѓ С„РёРіСѓСЂСѓ вЂ” С€С‚СЂР°С„
+    Piece temp[SIZE][SIZE];
+    backupBoard(temp);
+    // Р’С‹РїРѕР»РЅРёС‚СЊ С…РѕРґ РЅР° РґРѕСЃРєРµ
+    if (isCapture)
+    {
+        if (isKing(piece))
+        {
+            int dx = (toX > fromX) ? 1 : -1;
+            int dy = (toY > fromY) ? 1 : -1;
+            int x = fromX + dx, y = fromY + dy;
+            while (x != toX || y != toY)
+            {
+                if (isEnemy(board[y][x], piece))
+                {
+                    board[y][x] = EMPTY;
+                    break;
+                }
+                x += dx;
+                y += dy;
+            }
+        }
+        else
+        {
+            int mx = (fromX + toX) / 2, my = (fromY + toY) / 2;
+            board[my][mx] = EMPTY;
+        }
+    }
+    board[toY][toX] = piece;
+    board[fromY][fromX] = EMPTY;
+    promoteIfNeeded(toX, toY);
+
+    // РџСЂРѕРІРµСЂРёРј, РјРѕР¶РµС‚ Р»Рё СЃРѕРїРµСЂРЅРёРє СЃРЅСЏС‚СЊ С„РёРіСѓСЂСѓ РЅР° toX,toY
+    int opponentColor = (piece == BLACK || piece == BLACK_KING) ? WHITE : BLACK;
+    if (opponentCanCaptureSquare(toX, toY, opponentColor))
+    {
+        score -= 180; // Р±РѕР»СЊС€РѕР№ С€С‚СЂР°С„ Р·Р° СЂРёСЃРє СЃС‚Р°С‚СЊ СЃСЉРµРґРµРЅРЅС‹Рј
+    }
+    else
+    {
+        score += 10; // РЅРµР±РѕР»СЊС€РѕР№ Р±РѕРЅСѓСЃ Р·Р° Р±РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ
+    }
+
+    // РІРѕСЃСЃС‚Р°РЅРѕРІРёРј РґРѕСЃРєСѓ
+    restoreBoard(temp);
+
+    return score;
+}
+
+/* ---------- РљРѕРЅРµС† РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹С… С„СѓРЅРєС†РёР№ ---------- */
+
+void makeBotMove()
+{
+    typedef struct
+    {
+        int fromX, fromY, toX, toY;
+        bool isCapture;
+        Piece piece;
     } Move;
 
-    Move moves[100]; // для хранения всех возможных ходов
-    int moveCount = 0; //счетчик найденных ходов
+    Move moves[400];
+    int moveCount = 0;
 
-    // Шаг 1: собрать ВСЕ возможные взятия
-    for (int y = 0; y < SIZE; y++) {
-        for (int x = 0; x < SIZE; x++) {
-            int piece = board[y][x]; //выбранная фигура
-            if (piece == BLACK || piece == BLACK_KING) {
-                if (isKing(piece)) {
-                    // Для дамки
-                    int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} }; //все 4 возможных направления
-                    for (int d = 0; d < 4; d++) {
-                        int dx = dirs[d][0], dy = dirs[d][1]; //берем направления для x и y
-                        int nx = x + dx, ny = y + dy; //координаты соседних клеток
-                        bool foundEnemy = false; //флаг, который показывает нашли ли мы врага
+    // РЁР°Рі 1: СЃРѕР±СЂР°С‚СЊ Р’РЎР• РІРѕР·РјРѕР¶РЅС‹Рµ РІР·СЏС‚РёСЏ
+    for (int y = 0; y < SIZE; y++)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            int piece = board[y][x];
+            if (piece == BLACK || piece == BLACK_KING)
+            {
+                if (isKing(piece))
+                {
+                    // Р”Р»СЏ РґР°РјРєРё
+                    int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int dx = dirs[d][0], dy = dirs[d][1];
+                        int nx = x + dx, ny = y + dy;
+                        bool foundEnemy = false;
 
-                        while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
-                            if (board[ny][nx] != EMPTY) {
-                                if (isEnemy(board[ny][nx], piece) && !foundEnemy) { //убеждаемся что это вражеская шашка и что мы еще не встречали в этом направлении
-                                    foundEnemy = true; //нашли врага
-                                    // Проверяем клетку за вражеской шашкой
-                                    int tx = nx + dx, ty = ny + dy; //есть ли место за вражеской шашкой
-                                    if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY) {
-                                        // Проверяем, что между дамкой и вражеской шашкой нет других фигур
-                                        bool clearPath = true; //флаг который указывает на наличие фигур между дамкой и вражеской фигурой
-                                        int cx = x + dx, cy = y + dy; //берем еще дальние координаты
-                                        while (cx != nx || cy != ny) { // до тех пор, пока не равны текущим координатам
-                                            if (board[cy][cx] != EMPTY) {
-                                                clearPath = false; //есть фигура
+                        while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
+                        {
+                            if (board[ny][nx] != EMPTY)
+                            {
+                                if (isEnemy(board[ny][nx], piece) && !foundEnemy)
+                                {
+                                    foundEnemy = true;
+                                    // РџСЂРѕРІРµСЂСЏРµРј РєР»РµС‚РєСѓ Р·Р° РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№
+                                    int tx = nx + dx, ty = ny + dy;
+                                    if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                                    {
+                                        // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РјРµР¶РґСѓ РґР°РјРєРѕР№ Рё РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№ РЅРµС‚ РґСЂСѓРіРёС… С„РёРіСѓСЂ
+                                        bool clearPath = true;
+                                        int cx = x + dx, cy = y + dy;
+                                        while (cx != nx || cy != ny)
+                                        {
+                                            if (board[cy][cx] != EMPTY)
+                                            {
+                                                clearPath = false;
                                                 break;
                                             }
-                                            cx += dx; //двигаемся дальше по диагонали
+                                            cx += dx;
                                             cy += dy;
                                         }
-                                        if (clearPath) { //если нет фигур
-                                            // Добавляем все возможные клетки за вражеской шашкой
-                                            while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY) {
-                                                moves[moveCount++] = (Move){ x, y, tx, ty, true };
-                                                tx += dx; //двигаем координаты за врагом
+                                        if (clearPath)
+                                        {
+                                            // Р”РѕР±Р°РІР»СЏРµРј РІСЃРµ РІРѕР·РјРѕР¶РЅС‹Рµ РєР»РµС‚РєРё Р·Р° РІСЂР°Р¶РµСЃРєРѕР№ С€Р°С€РєРѕР№
+                                            while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
+                                            {
+                                                moves[moveCount++] = (Move){x, y, tx, ty, true, piece};
+                                                tx += dx;
                                                 ty += dy;
                                             }
                                         }
                                     }
                                     break;
                                 }
-                                else {
-                                    break; // нашли свою шашку или вторую вражескую
+                                else
+                                {
+                                    break; // РќР°С€Р»Рё СЃРІРѕСЋ С€Р°С€РєСѓ РёР»Рё РІС‚РѕСЂСѓСЋ РІСЂР°Р¶РµСЃРєСѓСЋ
                                 }
                             }
-                            nx += dx; //двигаем координаты соседних клеток
+                            nx += dx;
                             ny += dy;
                         }
                     }
                 }
-                else {
-                    // Для обычной шашки
-                    int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} }; //все 4 возможных направления
-                    for (int d = 0; d < 4; d++) {
-                        int dx = dirs[d][0], dy = dirs[d][1]; //берем направления для x и y
-                        if (dy > 0) continue; // обычные только вперед
-                        int mx = x + dx, my = y + dy; //координаты соседних клеток
-                        int tx = x + 2 * dx, ty = y + 2 * dy; //координаты дальних клеток
+                else
+                {
+                    // Р”Р»СЏ РѕР±С‹С‡РЅРѕР№ С€Р°С€РєРё
+                    int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int dx = dirs[d][0], dy = dirs[d][1];
+                        if (dy > 0)
+                            continue; // РѕР±С‹С‡РЅС‹Рµ С‚РѕР»СЊРєРѕ РІРІРµСЂС… (РґР»СЏ С‡РµСЂРЅС‹С… РІРІРµСЂС…)
+                        int mx = x + dx, my = y + dy;
+                        int tx = x + 2 * dx, ty = y + 2 * dy;
                         if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
-                            isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY) {
-                            moves[moveCount++] = (Move){ x, y, tx, ty, true };
+                            mx >= 0 && mx < SIZE && my >= 0 && my < SIZE &&
+                            isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY)
+                        {
+                            moves[moveCount++] = (Move){x, y, tx, ty, true, piece};
                         }
                     }
                 }
@@ -381,35 +811,46 @@ void makeBotMove() {
         }
     }
 
-    // Шаг 2: если нет взятий — собрать обычные ходы
-    if (moveCount == 0) {
-        for (int y = 0; y < SIZE; y++) {
-            for (int x = 0; x < SIZE; x++) {
+    // РЁР°Рі 2: РµСЃР»Рё РЅРµС‚ РІР·СЏС‚РёР№ вЂ” СЃРѕР±СЂР°С‚СЊ РѕР±С‹С‡РЅС‹Рµ С…РѕРґС‹
+    if (moveCount == 0)
+    {
+        for (int y = 0; y < SIZE; y++)
+        {
+            for (int x = 0; x < SIZE; x++)
+            {
                 int piece = board[y][x];
-                if (piece == BLACK || piece == BLACK_KING) {
-                    if (isKing(piece)) {
-                        // Для дамки
-                        int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} }; //все 4 возможных направления
-                        for (int d = 0; d < 4; d++) {
-                            int dx = dirs[d][0], dy = dirs[d][1]; //координаты для x и y
-                            int nx = x + dx, ny = y + dy; //координаты для соседних клеток
+                if (piece == BLACK || piece == BLACK_KING)
+                {
+                    if (isKing(piece))
+                    {
+                        // Р”Р»СЏ РґР°РјРєРё
+                        int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                        for (int d = 0; d < 4; d++)
+                        {
+                            int dx = dirs[d][0], dy = dirs[d][1];
+                            int nx = x + dx, ny = y + dy;
 
-                            while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY) {
-                                moves[moveCount++] = (Move){ x, y, nx, ny, false };
-                                nx += dx; //движем координаты соседних клеток
+                            while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY)
+                            {
+                                moves[moveCount++] = (Move){x, y, nx, ny, false, piece};
+                                nx += dx;
                                 ny += dy;
                             }
                         }
                     }
-                    else {
-                        // Для обычной шашки
-                        int dirs[4][2] = { {-1,-1}, {1,-1}, {-1,1}, {1,1} }; //все 4 возможных направления
-                        for (int d = 0; d < 4; d++) {
+                    else
+                    {
+                        // Р”Р»СЏ РѕР±С‹С‡РЅРѕР№ С€Р°С€РєРё
+                        int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
+                        for (int d = 0; d < 4; d++)
+                        {
                             int dx = dirs[d][0], dy = dirs[d][1];
-                            if (dy > 0) continue; // обычные только вперед
-                            int nx = x + dx, ny = y + dy; //координаты для соседних клеток
-                            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY) {
-                                moves[moveCount++] = (Move){ x, y, nx, ny, false };
+                            if (dy > 0)
+                                continue; // РѕР±С‹С‡РЅС‹Рµ С‚РѕР»СЊРєРѕ РІРІРµСЂС…
+                            int nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY)
+                            {
+                                moves[moveCount++] = (Move){x, y, nx, ny, false, piece};
                             }
                         }
                     }
@@ -418,142 +859,160 @@ void makeBotMove() {
         }
     }
 
-    if (moveCount == 0) return; // нет ходов
+    if (moveCount == 0)
+        return; // РЅРµС‚ С…РѕРґРѕРІ
 
-    // Шаг 3: выбрать случайный ход (предпочитая взятия)
-    Move m;
-    bool hasCapture = false; //флаг на наличие взятия
-    for (int i = 0; i < moveCount; i++) { //цикл до количества  найденных ходов
-        if (moves[i].isCapture) { //является ли ход взятием
-            hasCapture = true; //нашли взятие
-            break;
+    // РЁР°Рі 3: РћС†РµРЅРёС‚СЊ РєР°Р¶РґС‹Р№ С…РѕРґ Рё РІС‹Р±СЂР°С‚СЊ Р»СѓС‡С€РёР№ РїРѕ СЌРІСЂРёСЃС‚РёРєРµ
+    int bestIdx = 0;
+    int bestScore = -1000000000;
+    for (int i = 0; i < moveCount; i++)
+    {
+        int score = evaluateMoveScore(moves[i].fromX, moves[i].fromY, moves[i].toX, moves[i].toY, moves[i].isCapture, moves[i].piece);
+        // РќРµРјРЅРѕРіРѕ СЃР»СѓС‡Р°Р№РЅРѕСЃС‚Рё РїСЂРё СЂР°РІРµРЅСЃС‚РІРµ (С‡С‚РѕР±С‹ РїРѕРІРµРґРµРЅРёРµ РЅРµ Р±С‹Р»Рѕ РїРѕР»РЅРѕСЃС‚СЊСЋ РїСЂРµРґСЃРєР°Р·СѓРµРјС‹Рј) вЂ” Р·Р°РєРѕРјРјРµРЅС‚РёСЂРѕРІР°РЅРѕ.
+        // score += rand() % 5;
+        if (score > bestScore)
+        {
+            bestScore = score;
+            bestIdx = i;
         }
     }
 
-    if (hasCapture) {
-        int captureMoves = 0; //счетчик взятий
-        for (int i = 0; i < moveCount; i++) {
-            if (moves[i].isCapture) captureMoves++;
-        }
-        m = moves[rand() % captureMoves]; //выбираем случайное взятие до количества взятий
-    }
-    else {
-        m = moves[rand() % moveCount]; //выбираем любой доступный ход до количества ходов
-    }
+    Move m = moves[bestIdx];
 
-    int piece = board[m.fromY][m.fromX]; //сохранем фигуру которой будем ходить
+    int piece = board[m.fromY][m.fromX];
 
-    // выполнить начальный ход
-    if (m.isCapture) {
-        if (isKing(piece)) {
-            // Для дамки находим вражескую шашку на пути
+    // РІС‹РїРѕР»РЅРёС‚СЊ РЅР°С‡Р°Р»СЊРЅС‹Р№ С…РѕРґ
+    if (m.isCapture)
+    {
+        if (isKing(piece))
+        {
+            // Р”Р»СЏ РґР°РјРєРё РЅР°С…РѕРґРёРј РІСЂР°Р¶РµСЃРєСѓСЋ С€Р°С€РєСѓ РЅР° РїСѓС‚Рё
             int dx = m.toX > m.fromX ? 1 : -1;
             int dy = m.toY > m.fromY ? 1 : -1;
-            int x = m.fromX + dx; //двигаем дамку по координам
+            int x = m.fromX + dx;
             int y = m.fromY + dy;
 
-            while (x != m.toX || y != m.toY) { //цикл до целевых координатов
-                if (isEnemy(board[y][x], piece)) {
+            while (x != m.toX || y != m.toY)
+            {
+                if (isEnemy(board[y][x], piece))
+                {
                     board[y][x] = EMPTY;
                     break;
                 }
-                x += dx; //двигаем дамку
+                x += dx;
                 y += dy;
             }
         }
-        else {
-            // Для обычной шашки
-            int mx = (m.fromX + m.toX) / 2; //берем середину между началом и концом, как раз там где находится вржеская шашка
+        else
+        {
+            // Р”Р»СЏ РѕР±С‹С‡РЅРѕР№ С€Р°С€РєРё
+            int mx = (m.fromX + m.toX) / 2;
             int my = (m.fromY + m.toY) / 2;
             board[my][mx] = EMPTY;
         }
     }
 
-    board[m.toY][m.toX] = piece; //обновляем координаты выбранной фигуры
-    board[m.fromY][m.fromX] = EMPTY; //место где была шашка, должно быть пустым
-    promoteIfNeeded(m.toX, m.toY); //если шашка достигла края, то она превращается в дамку
+    board[m.toY][m.toX] = piece;
+    board[m.fromY][m.fromX] = EMPTY;
+    promoteIfNeeded(m.toX, m.toY);
 
-    // Шаг 4: если это было взятие — продолжить, если возможно
-    if (m.isCapture && canCaptureFrom(m.toX, m.toY)) { //если ход является взятием и проверка может фигура сделать взятие вражеской
-        selectedX = m.toX; //сохраняем значения целевых координат
+    // РЁР°Рі 4: РµСЃР»Рё СЌС‚Рѕ Р±С‹Р»Рѕ РІР·СЏС‚РёРµ вЂ” РїСЂРѕРґРѕР»Р¶РёС‚СЊ, РµСЃР»Рё РІРѕР·РјРѕР¶РЅРѕ
+    if (m.isCapture && canCaptureFrom(m.toX, m.toY))
+    {
+        selectedX = m.toX;
         selectedY = m.toY;
-        makeBotMove(); // Рекурсивно продолжаем взятие
+        makeBotMove(); // Р РµРєСѓСЂСЃРёРІРЅРѕ РїСЂРѕРґРѕР»Р¶Р°РµРј РІР·СЏС‚РёРµ (РїРѕРІРµРґРµРЅРёРµ СЃРѕС…СЂР°РЅРµРЅРѕ)
     }
-    else {
-        turn = WHITE; //иначе ходит человек
-        selectedX = selectedY = -1; //сбрасываем выбор фи
+    else
+    {
+        turn = WHITE;
+        selectedX = selectedY = -1;
     }
 
-    glutPostRedisplay(); //перерисовка экрана
+    glutPostRedisplay();
 }
 
-//функция которая отвечает за попытку выполнить ход игрока
-void tryMove(int toX, int toY) { //на вход координаты целевой клетки
-    int dx = toX - selectedX; //разница между целевой и текущей клеткой
+void tryMove(int toX, int toY)
+{
+    int dx = toX - selectedX;
     int dy = toY - selectedY;
-    int piece = board[selectedY][selectedX]; //сохраняем фигуру, которой хотим двигаться
+    int piece = board[selectedY][selectedX];
 
-    if (board[toY][toX] != EMPTY) return;
+    if (board[toY][toX] != EMPTY)
+        return;
 
-    if (!isKing(piece)) {
-        // Обычная шашка
-        bool isBlack = (piece == BLACK || piece == BLACK_KING); //тру если черная
-        bool validStep = abs(dx) == 1 && ((isBlack && dy == -1) || (!isBlack && dy == 1)); //проверка наличия простого хода по диагонали на одну клетку
-        bool validJump = abs(dx) == 2 && abs(dy) == 2; //проверка на прыжок через одну клетку
+    if (!isKing(piece))
+    {
+        // РћР±С‹С‡РЅР°СЏ С€Р°С€РєР°
+        bool isBlack = (piece == BLACK || piece == BLACK_KING);
+        bool validStep = abs(dx) == 1 && ((isBlack && dy == -1) || (!isBlack && dy == 1));
+        bool validJump = abs(dx) == 2 && abs(dy) == 2;
 
-        if (validStep) {
-            board[toY][toX] = piece; //ставим фигуру на целевые координаты 
-            board[selectedY][selectedX] = EMPTY; //чистим старые координаты от фигуры
-            promoteIfNeeded(toX, toY); //при достижении края превращаем в дамку
-            selectedX = selectedY = -1; //сбрасываем выделенную шашку
+        if (validStep)
+        {
+            board[toY][toX] = piece;
+            board[selectedY][selectedX] = EMPTY;
+            promoteIfNeeded(toX, toY);
+            selectedX = selectedY = -1;
             turn = (turn == BLACK) ? WHITE : BLACK;
-            glutPostRedisplay(); //перерисовываем экран
+            glutPostRedisplay();
 
-            if (gameMode == 1 && turn == BLACK) makeBotMove(); //если это режим бота и ходят черные, то используем функцию бота 
+            if (gameMode == 1 && turn == BLACK)
+                makeBotMove();
             return;
         }
 
-        if (validJump) {
-            int mx = selectedX + dx / 2; //выбираем середину, т.е. вражескую фигуру
+        if (validJump)
+        {
+            int mx = selectedX + dx / 2;
             int my = selectedY + dy / 2;
-            if (!isEnemy(board[my][mx], piece)) return; //если не явл вражеской, то ниче не делаем
+            if (!isEnemy(board[my][mx], piece))
+                return;
 
             board[my][mx] = EMPTY;
             board[toY][toX] = piece;
             board[selectedY][selectedX] = EMPTY;
             promoteIfNeeded(toX, toY);
 
-            selectedX = toX; //заопминаем новую позицию шашки, как выбранную
+            selectedX = toX;
             selectedY = toY;
 
-            if (canCaptureFrom(toX, toY)) { //проверка может ли сделать взятие
-                glutPostRedisplay(); //обновляем экран
+            if (canCaptureFrom(toX, toY))
+            {
+                glutPostRedisplay();
             }
-            else {
-                selectedX = selectedY = -1; //сброс выбора шашки
+            else
+            {
+                selectedX = selectedY = -1;
                 turn = (turn == BLACK) ? WHITE : BLACK;
-                if (gameMode == 1 && turn == BLACK) makeBotMove();
+                if (gameMode == 1 && turn == BLACK)
+                    makeBotMove();
                 glutPostRedisplay();
             }
         }
     }
-    else {
-        // Дамка
-        bool isCapture = false; //флаг является ли флаг взятием
-        if (canKingMove(selectedX, selectedY, toX, toY, &isCapture)) { //проверка возможен ли ход для дамки
-            if (isCapture) {
-                // Находим и удаляем вражескую шашку
-                int stepX = dx > 0 ? 1 : -1; //определяем направление движения шашки
+    else
+    {
+        // Р”Р°РјРєР°
+        bool isCapture = false;
+        if (canKingMove(selectedX, selectedY, toX, toY, &isCapture))
+        {
+            if (isCapture)
+            {
+                // РќР°С…РѕРґРёРј Рё СѓРґР°Р»СЏРµРј РІСЂР°Р¶РµСЃРєСѓСЋ С€Р°С€РєСѓ
+                int stepX = dx > 0 ? 1 : -1;
                 int stepY = dy > 0 ? 1 : -1;
-                int x = selectedX + stepX; //движение дамки
+                int x = selectedX + stepX;
                 int y = selectedY + stepY;
 
-                while (x != toX || y != toY) {
-                    if (isEnemy(board[y][x], piece)) {
+                while (x != toX || y != toY)
+                {
+                    if (isEnemy(board[y][x], piece))
+                    {
                         board[y][x] = EMPTY;
                         break;
                     }
-                    x += stepX; //двигаем дальше дамку
+                    x += stepX;
                     y += stepY;
                 }
             }
@@ -562,37 +1021,42 @@ void tryMove(int toX, int toY) { //на вход координаты целевой клетки
             board[selectedY][selectedX] = EMPTY;
             promoteIfNeeded(toX, toY);
 
-            if (isCapture && canCaptureFrom(toX, toY)) { //является ли ход взятием и проверка может ли фигура сделать взятие
+            if (isCapture && canCaptureFrom(toX, toY))
+            {
                 selectedX = toX;
                 selectedY = toY;
                 glutPostRedisplay();
             }
-            else {
+            else
+            {
                 selectedX = selectedY = -1;
                 turn = (turn == BLACK) ? WHITE : BLACK;
-                if (gameMode == 1 && turn == BLACK) makeBotMove();
+                if (gameMode == 1 && turn == BLACK)
+                    makeBotMove();
                 glutPostRedisplay();
             }
         }
     }
 }
 
-//функция которая обрабатывает нажатия мышки
-void mouse(int button, int state, int x, int y) { //в параметрах какой кнопкой нажато, состояние кнопки и координаты клика в пикселях
-    if (state != GLUT_DOWN) return; //проверяем что это нажатие кнопки: даун когда нажато, ап когда нет
-    //вычисляем координаты внутри окна от 0 до 1
-    float fx = (float)x / glutGet(GLUT_WINDOW_WIDTH); //перевод координатов экрана в нормализованные 
-    float fy = 1.0f - (float)y / glutGet(GLUT_WINDOW_HEIGHT); //инвертируем Y, т.к. в опенгл (0,0) это левый нижний угол
+void mouse(int button, int state, int x, int y)
+{
+    if (state != GLUT_DOWN)
+        return;
+    float fx = (float)x / glutGet(GLUT_WINDOW_WIDTH);
+    float fy = 1.0f - (float)y / glutGet(GLUT_WINDOW_HEIGHT);
 
-    //проверяем попал ли клик в одну из кнопок старта игры
-    if (!gameStarted) {
-        if (fx > 0.2f && fx < 0.8f && fy > 0.5f && fy < 0.6f) {
+    if (!gameStarted)
+    {
+        if (fx > 0.2f && fx < 0.8f && fy > 0.5f && fy < 0.6f)
+        {
             gameMode = 1;
-            gameStarted = true; //игра начинается 
-            initBoard(); //запуск поля
-            glutPostRedisplay(); //обновляем экран
+            gameStarted = true;
+            initBoard();
+            glutPostRedisplay();
         }
-        else if (fx > 0.2f && fx < 0.8f && fy > 0.3f && fy < 0.4f) {
+        else if (fx > 0.2f && fx < 0.8f && fy > 0.3f && fy < 0.4f)
+        {
             gameMode = 2;
             gameStarted = true;
             initBoard();
@@ -601,55 +1065,59 @@ void mouse(int button, int state, int x, int y) { //в параметрах какой кнопкой н
         return;
     }
 
-    float squareSize = 1.0f / (SIZE + 2); // определяет размер клетки внутри поля (10% от окна)
-    float offset = squareSize; // отступ от края окна
+    float squareSize = 1.0f / (SIZE + 2);
+    float offset = squareSize;
 
-    // вычисляем границы игрового поля
-    float boardLeft = offset; // 0.1f
-    float boardRight = offset + SIZE * squareSize;// 0.9f
-    float boardBottom = offset;// 0.1f
-    float boardTop = offset + SIZE * squareSize;// 0.9f
+    // Adjust coordinates to account for border
+    float boardLeft = offset;
+    float boardRight = offset + SIZE * squareSize;
+    float boardBottom = offset;
+    float boardTop = offset + SIZE * squareSize;
 
-    if (fx < boardLeft || fx > boardRight || fy < boardBottom || fy > boardTop) return; // если клик вне границ, то он игнорируется
+    if (fx < boardLeft || fx > boardRight || fy < boardBottom || fy > boardTop)
+        return;
 
-    int bx = (fx - offset) / squareSize; // вычисляем в какую клетку попал игрок 
+    int bx = (fx - offset) / squareSize;
     int by = (fy - offset) / squareSize;
 
-    if ((gameMode == 1 && turn != WHITE) || bx < 0 || bx >= SIZE || by < 0 || by >= SIZE) return;
+    if ((gameMode == 1 && turn != WHITE) || bx < 0 || bx >= SIZE || by < 0 || by >= SIZE)
+        return;
 
-    int clicked = board[by][bx]; //получаем тип фигуры на клетке
-    //проверяем кликнул ли игрок на свою фигуру
+    int clicked = board[by][bx];
     if ((turn == BLACK && (clicked == BLACK || clicked == BLACK_KING)) ||
-        (turn == WHITE && (clicked == WHITE || clicked == WHITE_KING))) {
-        selectedX = bx; //запоминаем клетку как выбранную
+        (turn == WHITE && (clicked == WHITE || clicked == WHITE_KING)))
+    {
+        selectedX = bx;
         selectedY = by;
     }
-    else if (selectedX != -1) { //если уже есть выбранная фигура, то пробуем сделать ход
+    else if (selectedX != -1)
+    {
         tryMove(bx, by);
     }
-    glutPostRedisplay(); //обновляем окно
+    glutPostRedisplay();
 }
 
-//функция которая вызывается при изменении размера окна
-void reshape(int w, int h) {
-    glViewport(0, 0, w, h); //устанавливает область вывода окна, т.е. при именении размера окна меняется область
-    glMatrixMode(GL_PROJECTION); //переключаемся на работу с матрицей проекции, определяет как будут отображаться координаты на экране
-    glLoadIdentity(); //сбрасываем трансформации
-    gluOrtho2D(0, 1, 0, 1); //устанавливаем двумерную ортографическую проекцию  
-    glMatrixMode(GL_MODELVIEW); //устанавливаем матрицу снова
-    glLoadIdentity(); //сбрасываем трансформации
+void reshape(int w, int h)
+{
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, 1, 0, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 }
 
-int main(int argc, char** argv) { //параметры нужны как раз для инициализации 
+int main(int argc, char **argv)
+{
     srand(time(NULL));
-    glutInit(&argc, argv); //обязательная инициализация glut    
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB); //установка режима отображения, один буфер показывается на экране, другой используется для следующего кадра, чтобы избежать мерцания, след макрос для цветов rgb
-    glutInitWindowSize(800, 800); //устнававливается рамер окна
-    glutCreateWindow("Checkers game"); //название окна
-    glutDisplayFunc(display); //регистрируем функцию рисовки, меню, доску фигуры и т.д.
-    glutMouseFunc(mouse);//регистрируем функцию для кликов
-    glutReshapeFunc(reshape); //регистрируем функцию изменения размера окна
-    glClearColor(0.2f, 0.2f, 0.2f, 1); //темно-серый фон для меню
-    glutMainLoop(); //для бесконечной обработки событий
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(800, 800);
+    glutCreateWindow("Checkers game");
+    glutDisplayFunc(display);
+    glutMouseFunc(mouse);
+    glutReshapeFunc(reshape);
+    glClearColor(0.2f, 0.2f, 0.2f, 1);
+    glutMainLoop();
     return 0;
 }
