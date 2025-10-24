@@ -775,6 +775,9 @@ bool hasAnyMove(Piece color)
 
 void makeBotMove()
 {
+    if (!gameStarted)
+        return;
+
     typedef struct
     {
         int fromX, fromY, toX, toY;
@@ -785,7 +788,24 @@ void makeBotMove()
     Move moves[400];
     int moveCount = 0;
 
-    // Шаг 1: собрать ВСЕ возможные взятия
+    // --- Проверка: есть ли вообще ходы ---
+    bool whiteCanMoveBefore = hasAnyMove(WHITE);
+    bool blackCanMoveBefore = hasAnyMove(BLACK);
+    if (!whiteCanMoveBefore || !blackCanMoveBefore)
+    {
+        printf("\n=== ИГРА ОКОНЧЕНА ===\n");
+        if (!whiteCanMoveBefore && !blackCanMoveBefore)
+            printf("Ничья! Ни у кого нет ходов.\n");
+        else if (!whiteCanMoveBefore)
+            printf("Чёрные победили!\n");
+        else if (!blackCanMoveBefore)
+            printf("Белые победили!\n");
+        gameStarted = false;
+        glutPostRedisplay();
+        return;
+    }
+
+    // --- Шаг 1: собрать все возможные взятия ---
     for (int y = 0; y < SIZE; y++)
     {
         for (int x = 0; x < SIZE; x++)
@@ -795,14 +815,13 @@ void makeBotMove()
             {
                 if (isKing(piece))
                 {
-                    // Для дамки
+                    // Дамка может бить в любом направлении
                     int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
                     for (int d = 0; d < 4; d++)
                     {
                         int dx = dirs[d][0], dy = dirs[d][1];
                         int nx = x + dx, ny = y + dy;
                         bool foundEnemy = false;
-
                         while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
                         {
                             if (board[ny][nx] != EMPTY)
@@ -810,11 +829,9 @@ void makeBotMove()
                                 if (isEnemy(board[ny][nx], piece) && !foundEnemy)
                                 {
                                     foundEnemy = true;
-                                    // Проверяем клетку за вражеской шашкой
                                     int tx = nx + dx, ty = ny + dy;
                                     if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
                                     {
-                                        // Проверяем, что между дамкой и вражеской шашкой нет других фигур
                                         bool clearPath = true;
                                         int cx = x + dx, cy = y + dy;
                                         while (cx != nx || cy != ny)
@@ -829,7 +846,6 @@ void makeBotMove()
                                         }
                                         if (clearPath)
                                         {
-                                            // Добавляем все возможные клетки за вражеской шашкой
                                             while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
                                             {
                                                 moves[moveCount++] = (Move){x, y, tx, ty, true, piece};
@@ -841,9 +857,7 @@ void makeBotMove()
                                     break;
                                 }
                                 else
-                                {
-                                    break; // Нашли свою шашку или вторую вражескую
-                                }
+                                    break;
                             }
                             nx += dx;
                             ny += dy;
@@ -852,13 +866,11 @@ void makeBotMove()
                 }
                 else
                 {
-                    // Для обычной шашки
+                    // Обычная шашка: теперь может бить во все 4 диагонали
                     int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
                     for (int d = 0; d < 4; d++)
                     {
                         int dx = dirs[d][0], dy = dirs[d][1];
-                        if (dy > 0)
-                            continue; // обычные только вверх (для черных вверх)
                         int mx = x + dx, my = y + dy;
                         int tx = x + 2 * dx, ty = y + 2 * dy;
                         if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
@@ -873,7 +885,7 @@ void makeBotMove()
         }
     }
 
-    // Шаг 2: если нет взятий — собрать обычные ходы
+    // --- Шаг 2: если нет взятий — собрать обычные ходы ---
     if (moveCount == 0)
     {
         for (int y = 0; y < SIZE; y++)
@@ -885,13 +897,11 @@ void makeBotMove()
                 {
                     if (isKing(piece))
                     {
-                        // Для дамки
                         int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
                         for (int d = 0; d < 4; d++)
                         {
                             int dx = dirs[d][0], dy = dirs[d][1];
                             int nx = x + dx, ny = y + dy;
-
                             while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY)
                             {
                                 moves[moveCount++] = (Move){x, y, nx, ny, false, piece};
@@ -902,18 +912,14 @@ void makeBotMove()
                     }
                     else
                     {
-                        // Для обычной шашки
-                        int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
-                        for (int d = 0; d < 4; d++)
+                        // Обычная шашка может двигаться только вверх, но бить теперь может назад
+                        int dirs[2][2] = {{-1, -1}, {1, -1}};
+                        for (int d = 0; d < 2; d++)
                         {
                             int dx = dirs[d][0], dy = dirs[d][1];
-                            if (dy > 0)
-                                continue; // обычные только вверх
                             int nx = x + dx, ny = y + dy;
                             if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && board[ny][nx] == EMPTY)
-                            {
                                 moves[moveCount++] = (Move){x, y, nx, ny, false, piece};
-                            }
                         }
                     }
                 }
@@ -922,16 +928,23 @@ void makeBotMove()
     }
 
     if (moveCount == 0)
-        return; // нет ходов
+    {
+        printf("\n=== ИГРА ОКОНЧЕНА ===\n");
+        printf("Белые победили! (у чёрных нет возможных ходов)\n");
+        gameStarted = false;
+        glutPostRedisplay();
+        return;
+    }
 
-    // Шаг 3: Оценить каждый ход и выбрать лучший по эвристике
+    // --- Шаг 3: оценить ходы ---
     int bestIdx = 0;
     int bestScore = -1000000000;
     for (int i = 0; i < moveCount; i++)
     {
-        int score = evaluateMoveScore(moves[i].fromX, moves[i].fromY, moves[i].toX, moves[i].toY, moves[i].isCapture, moves[i].piece);
-        // Немного случайности при равенстве (чтобы поведение не было полностью предсказуемым) — закомментировано.
-        // score += rand() % 5;
+        int score = evaluateMoveScore(
+            moves[i].fromX, moves[i].fromY,
+            moves[i].toX, moves[i].toY,
+            moves[i].isCapture, moves[i].piece);
         if (score > bestScore)
         {
             bestScore = score;
@@ -940,20 +953,17 @@ void makeBotMove()
     }
 
     Move m = moves[bestIdx];
-
     int piece = board[m.fromY][m.fromX];
 
-    // выполнить начальный ход
+    // --- Выполнить ход ---
     if (m.isCapture)
     {
         if (isKing(piece))
         {
-            // Для дамки находим вражескую шашку на пути
-            int dx = m.toX > m.fromX ? 1 : -1;
-            int dy = m.toY > m.fromY ? 1 : -1;
+            int dx = (m.toX > m.fromX) ? 1 : -1;
+            int dy = (m.toY > m.fromY) ? 1 : -1;
             int x = m.fromX + dx;
             int y = m.fromY + dy;
-
             while (x != m.toX || y != m.toY)
             {
                 if (isEnemy(board[y][x], piece))
@@ -967,7 +977,6 @@ void makeBotMove()
         }
         else
         {
-            // Для обычной шашки
             int mx = (m.fromX + m.toX) / 2;
             int my = (m.fromY + m.toY) / 2;
             board[my][mx] = EMPTY;
@@ -978,19 +987,20 @@ void makeBotMove()
     board[m.fromY][m.fromX] = EMPTY;
     promoteIfNeeded(m.toX, m.toY);
 
-    // Шаг 4: если это было взятие — продолжить, если возможно
+    // --- Многоходовое взятие во всех направлениях ---
     if (m.isCapture && canCaptureFrom(m.toX, m.toY))
     {
         selectedX = m.toX;
         selectedY = m.toY;
-        makeBotMove(); // Рекурсивно продолжаем взятие (поведение сохранено)
+        makeBotMove(); // рекурсивное продолжение
+        return;
     }
-    else
-    {
-        turn = WHITE;
-        selectedX = selectedY = -1;
-    }
-    // Проверка конца игры после хода бота
+
+    // --- Завершение хода ---
+    turn = WHITE;
+    selectedX = selectedY = -1;
+
+    // --- Проверка конца игры ---
     bool whiteCanMove = hasAnyMove(WHITE);
     bool blackCanMove = hasAnyMove(BLACK);
     if (!whiteCanMove || !blackCanMove)
@@ -1228,6 +1238,7 @@ void reshape(int w, int h)
 
 int main(int argc, char **argv)
 {
+    setlocale(LC_ALL, "");
     SetConsoleOutputCP(1251);
     SetConsoleCP(1251);
     srand(time(NULL));
