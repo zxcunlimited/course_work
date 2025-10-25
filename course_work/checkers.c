@@ -7,10 +7,10 @@
 #include <locale.h>
 #include <Windows.h>
 
-#define SIZE 8
+#define SIZE 8 // Это макрос, который задаёт размер игрового поля.
 
 typedef enum
-{
+{ // перечисление которое определяет какие фигуры могут быть на доске
     EMPTY = 0,
     WHITE,
     BLACK,
@@ -18,12 +18,13 @@ typedef enum
     BLACK_KING
 } Piece;
 
-Piece board[SIZE][SIZE];
-int selectedX = -1, selectedY = -1;
-bool gameStarted = false;
-int gameMode = 0; // 1 - человек против бота, 2 - человек против человека
-Piece turn = BLACK;
+Piece board[SIZE][SIZE];            // создаем поле
+int selectedX = -1, selectedY = -1; // координаты выбранной шашки (-1 это ничего не выбрано)
+bool gameStarted = false;           // флаг указывающий начата ли игра
+int gameMode = 0;                   // 1 - человек против бота, 2 - человек против человека
+Piece turn;                         // определяет чей ход сейчас, черных или белых
 
+// инициализируем доску шашками
 void initBoard()
 {
     for (int y = 0; y < SIZE; y++)
@@ -42,6 +43,7 @@ void initBoard()
     turn = WHITE;
 }
 
+// проверка является ли шашка вражеской
 bool isEnemy(int piece, int current)
 {
     if (piece == EMPTY)
@@ -53,11 +55,13 @@ bool isEnemy(int piece, int current)
     return false;
 }
 
+// проверяем является ли шашка дамкой
 bool isKing(int piece)
 {
     return piece == WHITE_KING || piece == BLACK_KING;
 }
 
+// повышение шашки до дамки
 void promoteIfNeeded(int x, int y)
 {
     if (board[y][x] == WHITE && y == SIZE - 1)
@@ -66,50 +70,52 @@ void promoteIfNeeded(int x, int y)
         board[y][x] = BLACK_KING;
 }
 
+// отрисовка шашек
 void drawCircle(float cx, float cy, float r)
-{
-    glBegin(GL_TRIANGLE_FAN);
-    glVertex2f(cx, cy);
+{                             /*координаты центра и радиус круга*/
+    glBegin(GL_TRIANGLE_FAN); // для веера треугольников
+    glVertex2f(cx, cy);       // определеяет первую вершину, т.е. центр круга
     for (int i = 0; i <= 100; i++)
-    {
-        float angle = 2.0f * 3.1415926f * i / 100;
-        glVertex2f(cx + cosf(angle) * r, cy + sinf(angle) * r);
+    {                                                           /*рисуем 100 треугольников вокруг центра*/
+        float angle = 2.0f * 3.1415926f * i / 100;              // вычисляем текущий угол в радианах для каждой точки на окружности
+        glVertex2f(cx + cosf(angle) * r, cy + sinf(angle) * r); // добавляем вершину на окружности (точку на краю круга)
     }
-    glEnd();
+    glEnd(); // завершаем
 }
 
+// отрисовка игрового поля
 void drawBoard()
 {
-    float squareSize = 1.0f / (SIZE + 2); // Add space for border
-    float offset = squareSize;            // Offset for border
+    float squareSize = 1.0f / (SIZE + 2); // размер одной клетки (0.1 от всего поля)
+    float offset = squareSize;            // смещение от левого/нижнего края до начала самой доски
 
     // Draw border
-    glColor3f(0.3f, 0.2f, 0.1f);
-    glBegin(GL_QUADS);
+    glColor3f(0.3f, 0.2f, 0.1f); // устанавливаем текущий цвет для рисования (темно-коричневый)
+    glBegin(GL_QUADS);           // устанавливаем что это квадрат
     glVertex2f(0, 0);
     glVertex2f(1, 0);
     glVertex2f(1, 1);
-    glVertex2f(0, 1);
-    glEnd();
+    glVertex2f(0, 1); // закрашиваем весь экран
+    glEnd();          // завершаем
 
     // Draw coordinate letters (A-H)
-    glColor3f(1, 1, 1);
+    glColor3f(1, 1, 1); // белый цвет для текста координат
     for (int x = 0; x < SIZE; x++)
     {
-        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset - squareSize * 0.7f);
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);
+        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset - squareSize * 0.7f); // устанвливаем позицию для отрисовки символов снизу
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);                                 // устанавливаем шрифт и рисуем символы по алфавиту
 
-        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset + SIZE * squareSize + squareSize * 0.3f);
+        glRasterPos2f(offset + x * squareSize + squareSize * 0.4f, offset + SIZE * squareSize + squareSize * 0.3f); // сверху
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'A' + x);
     }
 
     // Draw coordinate numbers (1-8)
     for (int y = 0; y < SIZE; y++)
     {
-        glRasterPos2f(offset - squareSize * 0.7f, offset + y * squareSize + squareSize * 0.4f);
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, '1' + (SIZE - 1 - y));
+        glRasterPos2f(offset - squareSize * 0.7f, offset + y * squareSize + squareSize * 0.4f); // устнавливаем координаты для чисел (слева)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, '1' + (SIZE - 1 - y));                    // нумерация от 8 до 1, тк начинается снизу вверх
 
-        glRasterPos2f(offset + SIZE * squareSize + squareSize * 0.3f, offset + y * squareSize + squareSize * 0.4f);
+        glRasterPos2f(offset + SIZE * squareSize + squareSize * 0.3f, offset + y * squareSize + squareSize * 0.4f); // справа
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, '1' + (SIZE - 1 - y));
     }
 
@@ -119,35 +125,35 @@ void drawBoard()
         for (int x = 0; x < SIZE; x++)
         {
             if ((x + y) % 2 == 0)
-                glColor3f(255 / 255.0f, 254 / 255.0f, 122 / 255.0f);
+                glColor3f(255 / 255.0f, 254 / 255.0f, 122 / 255.0f); // светлые клетки
             else
-                glColor3f(0.4f, 0.2f, 0.1f);
+                glColor3f(0.4f, 0.2f, 0.1f); // коричневые клетки
 
-            glBegin(GL_QUADS);
+            glBegin(GL_QUADS); // рисуем квадратные клетки, устанавливая для них границы
             glVertex2f(offset + x * squareSize, offset + y * squareSize);
             glVertex2f(offset + (x + 1) * squareSize, offset + y * squareSize);
             glVertex2f(offset + (x + 1) * squareSize, offset + (y + 1) * squareSize);
             glVertex2f(offset + x * squareSize, offset + (y + 1) * squareSize);
-            glEnd();
+            glEnd(); // завершаем
 
-            int piece = board[y][x];
+            int piece = board[y][x]; // читаем содержимеое из клетки, если она не пустая, то рисуем шашку
             if (piece != EMPTY)
             {
                 if (piece == WHITE || piece == WHITE_KING)
                     glColor3f(1, 1, 1);
                 else
                     glColor3f(0, 0, 0);
-                drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.4f);
+                drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.4f); // рисуем шашку
 
                 if (isKing(piece))
                 {
-                    glColor3f(1, 0, 0);
+                    glColor3f(1, 0, 0); // красный цвет
                     drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.2f);
                 }
             }
 
             if (x == selectedX && y == selectedY)
-            {
+            { // если это выбранная шашка, то закрашиваем ее в зеленый цвет
                 glColor3f(0, 1, 0);
                 drawCircle(offset + (x + 0.5f) * squareSize, offset + (y + 0.5f) * squareSize, squareSize * 0.45f);
             }
@@ -155,11 +161,12 @@ void drawBoard()
     }
 }
 
+// меню, стартовый экран
 void drawStartScreen()
 {
     // Рисуем кнопки
     glColor3f(0, 0, 0);
-    glBegin(GL_QUADS);
+    glBegin(GL_QUADS); // рисуем четырехугольник, черную кнопку
     glVertex2f(0.2f, 0.5f);
     glVertex2f(0.8f, 0.5f);
     glVertex2f(0.8f, 0.6f);
@@ -193,24 +200,26 @@ void drawStartScreen()
         glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *title++);
 }
 
+// для перерисовки окна
 void display()
 {
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLoadIdentity();
+    glClear(GL_COLOR_BUFFER_BIT); // очищается экран
+    glLoadIdentity();             // сбрасывает матрицы преобразования
 
     if (!gameStarted)
-        drawStartScreen();
+        drawStartScreen(); // если игра не начата, то рисуем меню
     else
-        drawBoard();
+        drawBoard(); // иначе доску
 
-    glutSwapBuffers();
+    glutSwapBuffers(); // используется двойная буферизация для избежания мерцания
 }
 
+// проверка может ли фигура выполнить взятие
 bool canCaptureFrom(int x, int y)
 {
-    int piece = board[y][x];
+    int piece = board[y][x]; // считываем содержимое клетки
     if (piece == EMPTY)
-        return false;
+        return false; // если пустая
 
     // Для обычных шашек
     if (!isKing(piece))
@@ -218,13 +227,14 @@ bool canCaptureFrom(int x, int y)
         int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
         for (int d = 0; d < 4; d++)
         {
-            int dx = dirs[d][0], dy = dirs[d][1];
+            int dx = dirs[d][0], dy = dirs[d][1]; // перебираем каждое из четыех направлений
 
-            int mx = x + dx;
+            int mx = x + dx; // промежуточные клетки
             int my = y + dy;
-            int tx = x + 2 * dx;
+            int tx = x + 2 * dx; // целевые клетки
             int ty = y + 2 * dy;
 
+            // проверяем условия для валидного взятия
             if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
                 mx >= 0 && mx < SIZE && my >= 0 && my < SIZE &&
                 isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY)
@@ -239,7 +249,7 @@ bool canCaptureFrom(int x, int y)
         for (int d = 0; d < 4; d++)
         {
             int dx = dirs[d][0], dy = dirs[d][1];
-            int nx = x + dx, ny = y + dy;
+            int nx = x + dx, ny = y + dy; // координаты первой клетки по диагонали от дамки
             bool foundEnemy = false;
 
             // Ищем вражескую шашку по диагонали
@@ -248,10 +258,10 @@ bool canCaptureFrom(int x, int y)
                 if (board[ny][nx] != EMPTY)
                 {
                     if (isEnemy(board[ny][nx], piece) && !foundEnemy)
-                    {
+                    { // если нашли вражескую шашку
                         foundEnemy = true;
                         // Проверяем клетку за вражеской шашкой
-                        int tx = nx + dx, ty = ny + dy;
+                        int tx = nx + dx, ty = ny + dy; // соседняя клетка за шашкой
                         if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
                         {
                             // Проверяем, что между дамкой и вражеской шашкой нет других фигур
@@ -285,31 +295,32 @@ bool canCaptureFrom(int x, int y)
     return false;
 }
 
+// возращает true если дамка может выполнить ход
 bool canKingMove(int fromX, int fromY, int toX, int toY, bool *isCapture)
-{
-    int dx = toX - fromX;
+{                         /*isCapture это флаг на взятие*/
+    int dx = toX - fromX; // вычисляем разницу в координатах
     int dy = toY - fromY;
 
     // Дамка должна двигаться по диагонали
     if (abs(dx) != abs(dy))
         return false;
 
-    int stepX = dx > 0 ? 1 : -1;
+    int stepX = dx > 0 ? 1 : -1; // направление шага про осям
     int stepY = dy > 0 ? 1 : -1;
-    int distance = abs(dx);
-    int enemyCount = 0;
-    int enemyX = -1, enemyY = -1;
+    int distance = abs(dx);       // дистанция
+    int enemyCount = 0;           // сколько вражеских фигур встретилось на пути
+    int enemyX = -1, enemyY = -1; // координаты последней вражеской фигуры
 
     // Проверяем путь дамки
     for (int i = 1; i < distance; i++)
     {
-        int x = fromX + i * stepX;
+        int x = fromX + i * stepX; // координаты каждой промежуточной клетки
         int y = fromY + i * stepY;
 
         if (board[y][x] != EMPTY)
         {
             if (isEnemy(board[y][x], board[fromY][fromX]))
-            {
+            { // если вражеская фигура
                 enemyCount++;
                 enemyX = x;
                 enemyY = y;
@@ -374,6 +385,7 @@ void restoreBoard(Piece temp[SIZE][SIZE])
 
 /* Генерирует все возможные взятия для цвета 'color' и возвращает через массив moves
    Возвращаем: число найденных взятий */
+// структура для ходов
 typedef struct
 {
     int fromX, fromY, toX, toY;
@@ -383,7 +395,7 @@ typedef struct
 /* Получить возможные взятия для конкретной позиции (используется для проверки уязвимости) */
 int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
 {
-    int count = 0;
+    int count = 0; // счетчик найденных взятий
     for (int y = 0; y < SIZE; y++)
     {
         for (int x = 0; x < SIZE; x++)
@@ -392,7 +404,7 @@ int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
             if (piece == EMPTY)
                 continue;
             bool pieceIsColor = ((color == BLACK) && (piece == BLACK || piece == BLACK_KING)) ||
-                                ((color == WHITE) && (piece == WHITE || piece == WHITE_KING));
+                                ((color == WHITE) && (piece == WHITE || piece == WHITE_KING)); // проверяем, принадлежит ли фигура в текущей клетке указанному color
             if (!pieceIsColor)
                 continue;
 
@@ -401,20 +413,20 @@ int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
                 int dirs[4][2] = {{-1, -1}, {1, -1}, {-1, 1}, {1, 1}};
                 for (int d = 0; d < 4; d++)
                 {
-                    int dx = dirs[d][0], dy = dirs[d][1];
-                    int nx = x + dx, ny = y + dy;
-                    bool foundEnemy = false;
+                    int dx = dirs[d][0], dy = dirs[d][1]; // подбираем направления
+                    int nx = x + dx, ny = y + dy;         // координаты текущей клетки рядом дамкой
+                    bool foundEnemy = false;              // флаг на наличие врага
                     while (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE)
-                    {
+                    { /*цикл пока не выйдем за пределы поля*/
                         if (board[ny][nx] != EMPTY)
                         {
                             if (isEnemy(board[ny][nx], piece) && !foundEnemy)
                             {
                                 foundEnemy = true;
-                                int tx = nx + dx, ty = ny + dy;
+                                int tx = nx + dx, ty = ny + dy; // ставим координаты целевой клетки, за вражеской фигурой
                                 if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
-                                {
-                                    bool clearPath = true;
+                                {                          /*если в пределах поля и клетка пустая*/
+                                    bool clearPath = true; // флаг на наличие фигур между найденной вражеской фигурой и дамкой
                                     int cx = x + dx, cy = y + dy;
                                     while (cx != nx || cy != ny)
                                     {
@@ -427,9 +439,11 @@ int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
                                         cy += dy;
                                     }
                                     if (clearPath)
-                                    {
+                                    { /*если путь до вражеской фигуры чист, то дамка может приземлиться на любую пустую клетку, лежащую дальше за врагом (не только на первую).*/
                                         while (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
                                         {
+                                            /*outMoves — массив FastMove, в который записывают найденные ходы с взятием.
+                                            maxMoves — максимальное количество элементов, которые безопасно записать в outMoves.*/
                                             if (count < maxMoves)
                                                 outMoves[count] = (FastMove){x, y, tx, ty, true};
                                             count++;
@@ -460,14 +474,14 @@ int generateCaptureMovesForColor(int color, FastMove outMoves[], int maxMoves)
                         isEnemy(board[my][mx], piece) && board[ty][tx] == EMPTY)
                     {
                         if (count < maxMoves)
-                            outMoves[count] = (FastMove){x, y, tx, ty, false};
+                            outMoves[count] = (FastMove){x, y, tx, ty, false}; // если взятие допустимо — записываем ход в outMoves
                         count++;
                     }
                 }
             }
         }
     }
-    return count;
+    return count; // возвращаем общее число найденных вариантов взятия count
 }
 
 /* Проверяет — есть ли у противника взятие, которое снимет фигуру, стоящую в (targetX,targetY)
@@ -491,9 +505,9 @@ bool opponentCanCaptureSquare(int targetX, int targetY, int opponentColor)
         else
         {
             // дамка — нужно найти вражескую фигуру на диагонали между fx,fy и tx,ty
-            int dx = (tx > fx) ? 1 : -1;
+            int dx = (tx > fx) ? 1 : -1; // выбираем направление
             int dy = (ty > fy) ? 1 : -1;
-            int cx = fx + dx, cy = fy + dy;
+            int cx = fx + dx, cy = fy + dy; // сохраняем начальные координаты
             while (cx != tx || cy != ty)
             {
                 if (cx == targetX && cy == targetY)
@@ -516,7 +530,7 @@ bool opponentCanCaptureSquare(int targetX, int targetY, int opponentColor)
    и возвращает максимум до depthLimit. */
 int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piece, int depthLimit)
 {
-    Piece temp[SIZE][SIZE];
+    Piece temp[SIZE][SIZE]; // сохраняем и копируем доску во временную переменную
     backupBoard(temp);
 
     // Выполнить одно взятие (извлечь съеденную)
@@ -544,7 +558,7 @@ int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piec
     }
     board[toY][toX] = piece;
     board[fromY][fromX] = EMPTY;
-    promoteIfNeeded(toX, toY);
+    promoteIfNeeded(toX, toY); // если достигла конца поля, то повышается
 
     int best = 1; // уже сделал 1 взятие
     if (depthLimit > 1 && canCaptureFrom(toX, toY))
@@ -578,9 +592,9 @@ int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piec
                                     int curtx = tx, curty = ty;
                                     while (curtx >= 0 && curtx < SIZE && curty >= 0 && curty < SIZE && board[curty][curtx] == EMPTY)
                                     {
-                                        int chain = 1 + simulateCaptureChainCount(toX, toY, curtx, curty, curPiece, depthLimit - 1);
+                                        int chain = 1 + simulateCaptureChainCount(toX, toY, curtx, curty, curPiece, depthLimit - 1); // рекурсивно увеличиваем цепочку взятий
                                         if (chain > best)
-                                            best = chain;
+                                            best = chain; // присваивается к переменной со взятиями
                                         curtx += dx;
                                         curty += dy;
                                     }
@@ -605,7 +619,7 @@ int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piec
                         tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE &&
                         isEnemy(board[my][mx], curPiece) && board[ty][tx] == EMPTY)
                     {
-                        int chain = 1 + simulateCaptureChainCount(toX, toY, tx, ty, curPiece, depthLimit - 1);
+                        int chain = 1 + simulateCaptureChainCount(toX, toY, tx, ty, curPiece, depthLimit - 1); // рекурсивно увеличиваем цепочку взятий
                         if (chain > best)
                             best = chain;
                     }
@@ -614,14 +628,14 @@ int simulateCaptureChainCount(int fromX, int fromY, int toX, int toY, Piece piec
         }
     }
 
-    restoreBoard(temp);
-    return best;
+    restoreBoard(temp); // восстанавливаем доску, чтобы она не была изменена
+    return best;        // возвращает максимальное количество взятых фигур в цепочке
 }
 
 /* Оценка хода: +за длину цепочки, +за продвижение к дамке, -за уязвимость */
 int evaluateMoveScore(int fromX, int fromY, int toX, int toY, bool isCapture, Piece piece)
 {
-    int score = 0;
+    int score = 0; // для оценки + и -
 
     // Базовые приоритеты
     if (isCapture)
@@ -712,6 +726,7 @@ int evaluateMoveScore(int fromX, int fromY, int toX, int toY, bool isCapture, Pi
 
 /* ---------- Конец вспомогательных функций ---------- */
 
+// возвращает true если есть у фигуры хотя бы один допустимый ход
 bool hasAnyMove(Piece color)
 {
     for (int y = 0; y < SIZE; y++)
@@ -776,7 +791,7 @@ bool hasAnyMove(Piece color)
 void makeBotMove()
 {
     if (!gameStarted)
-        return;
+        return; // если игра не запущена
 
     typedef struct
     {
@@ -785,8 +800,8 @@ void makeBotMove()
         Piece piece;
     } Move;
 
-    Move moves[400];
-    int moveCount = 0;
+    Move moves[400];   // массив для накопления всех найденных ходов
+    int moveCount = 0; // счетчик найденных ходов
 
     // --- Проверка: есть ли вообще ходы ---
     bool whiteCanMoveBefore = hasAnyMove(WHITE);
@@ -801,7 +816,7 @@ void makeBotMove()
         else if (!blackCanMoveBefore)
             printf("Белые победили!\n");
         gameStarted = false;
-        glutPostRedisplay();
+        glutPostRedisplay(); // обновляем кадр
         return;
     }
 
@@ -832,7 +847,7 @@ void makeBotMove()
                                     int tx = nx + dx, ty = ny + dy;
                                     if (tx >= 0 && tx < SIZE && ty >= 0 && ty < SIZE && board[ty][tx] == EMPTY)
                                     {
-                                        bool clearPath = true;
+                                        bool clearPath = true; // проверка на наличие фигур между вражеской фигурой и дамкой
                                         int cx = x + dx, cy = y + dy;
                                         while (cx != nx || cy != ny)
                                         {
@@ -937,8 +952,8 @@ void makeBotMove()
     }
 
     // --- Шаг 3: оценить ходы ---
-    int bestIdx = 0;
-    int bestScore = -1000000000;
+    int bestIdx = 0;             // индекс лучшего хода
+    int bestScore = -1000000000; // оценка лучшего хода
     for (int i = 0; i < moveCount; i++)
     {
         int score = evaluateMoveScore(
@@ -952,8 +967,8 @@ void makeBotMove()
         }
     }
 
-    Move m = moves[bestIdx];
-    int piece = board[m.fromY][m.fromX];
+    Move m = moves[bestIdx];             // берем лучший ход
+    int piece = board[m.fromY][m.fromX]; // сохраняем для того чтобы определить шашка или дамка
 
     // --- Выполнить ход ---
     if (m.isCapture)
@@ -1037,9 +1052,10 @@ void checkGameEnd()
     }
 }
 
+// попытка сделать ход
 void tryMove(int toX, int toY)
 {
-    int dx = toX - selectedX;
+    int dx = toX - selectedX; // расстояние от выбранной шашки до целевой клетки
     int dy = toY - selectedY;
     int piece = board[selectedY][selectedX];
 
@@ -1050,8 +1066,8 @@ void tryMove(int toX, int toY)
     {
         // Обычная шашка
         bool isBlack = (piece == BLACK || piece == BLACK_KING);
-        bool validStep = abs(dx) == 1 && ((isBlack && dy == -1) || (!isBlack && dy == 1));
-        bool validJump = abs(dx) == 2 && abs(dy) == 2;
+        bool validStep = abs(dx) == 1 && ((isBlack && dy == -1) || (!isBlack && dy == 1)); // проверка на обычный (незахватывающий) одноклеточный ход
+        bool validJump = abs(dx) == 2 && abs(dy) == 2;                                     // прыжок на 2 клетки (взятие шашки)
 
         if (validStep)
         {
@@ -1140,7 +1156,6 @@ void tryMove(int toX, int toY)
 
             board[toY][toX] = piece;
             board[selectedY][selectedX] = EMPTY;
-            promoteIfNeeded(toX, toY);
 
             if (isCapture && canCaptureFrom(toX, toY))
             {
@@ -1168,10 +1183,12 @@ void tryMove(int toX, int toY)
     }
 }
 
+// функция для мышки
 void mouse(int button, int state, int x, int y)
 {
     if (state != GLUT_DOWN)
         return;
+    /*Преобразуем пиксельные координаты (x,y) в нормализованные координаты окна*/
     float fx = (float)x / glutGet(GLUT_WINDOW_WIDTH);
     float fy = 1.0f - (float)y / glutGet(GLUT_WINDOW_HEIGHT);
 
@@ -1179,7 +1196,7 @@ void mouse(int button, int state, int x, int y)
     {
         if (fx > 0.2f && fx < 0.8f && fy > 0.5f && fy < 0.6f)
         {
-            gameMode = 1;
+            gameMode = 1; // против бота
             gameStarted = true;
             initBoard();
             glutPostRedisplay();
@@ -1194,10 +1211,10 @@ void mouse(int button, int state, int x, int y)
         return;
     }
 
-    float squareSize = 1.0f / (SIZE + 2);
-    float offset = squareSize;
+    float squareSize = 1.0f / (SIZE + 2); // величина клетки внутри поля
+    float offset = squareSize;            // отступ слева снизу
 
-    // Adjust coordinates to account for border
+    // Вычисляем границы области, в которой нарисована доска
     float boardLeft = offset;
     float boardRight = offset + SIZE * squareSize;
     float boardBottom = offset;
@@ -1206,7 +1223,7 @@ void mouse(int button, int state, int x, int y)
     if (fx < boardLeft || fx > boardRight || fy < boardBottom || fy > boardTop)
         return;
 
-    int bx = (fx - offset) / squareSize;
+    int bx = (fx - offset) / squareSize; // Переводим нормированные координаты fx, fy в индексы клетки
     int by = (fy - offset) / squareSize;
 
     if ((gameMode == 1 && turn != WHITE) || bx < 0 || bx >= SIZE || by < 0 || by >= SIZE)
@@ -1226,6 +1243,7 @@ void mouse(int button, int state, int x, int y)
     glutPostRedisplay();
 }
 
+// обработчик изменения размера окна
 void reshape(int w, int h)
 {
     glViewport(0, 0, w, h);
@@ -1241,15 +1259,15 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
     SetConsoleOutputCP(1251);
     SetConsoleCP(1251);
-    srand(time(NULL));
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(800, 800);
-    glutCreateWindow("Checkers game");
-    glutDisplayFunc(display);
-    glutMouseFunc(mouse);
+    srand(time(NULL));                           // Инициализация генератора случайных чисел текущим временем
+    glutInit(&argc, argv);                       // Инициализация библиотеки GLUT
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB); // Задаёт режим отображения, двойная буф, ргб
+    glutInitWindowSize(800, 800);                // размер окна
+    glutCreateWindow("Checkers game");           // название окна
+    glutDisplayFunc(display);                    // Регистрируем функцию обратного вызова (callback) для отрисовки.
+    glutMouseFunc(mouse);                        // Регистрируем функцию mouse() — обработчик событий мыши
     glutReshapeFunc(reshape);
-    glClearColor(0.2f, 0.2f, 0.2f, 1);
-    glutMainLoop();
+    glClearColor(0.2f, 0.2f, 0.2f, 1); // серый фон после очистки
+    glutMainLoop();                    // Запускаем основной цикл GLUT
     return 0;
 }
